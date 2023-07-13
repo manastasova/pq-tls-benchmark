@@ -24,7 +24,7 @@ def run_subprocess(command, working_dir='.', expected_returncode=0):
 def change_qdisc(ns, dev, pkt_loss, delay):
     if pkt_loss == 0:
         command = [
-            'ip', 'netns', 'exec', ns,
+            'sudo', 'ip', 'netns', 'exec', ns,
             'tc', 'qdisc', 'change',
             'dev', dev, 'root', 'netem',
             'limit', '1000',
@@ -33,7 +33,7 @@ def change_qdisc(ns, dev, pkt_loss, delay):
         ]
     else:
         command = [
-            'ip', 'netns', 'exec', ns,
+            'sudo', 'ip', 'netns', 'exec', ns,
             'tc', 'qdisc', 'change',
             'dev', dev, 'root', 'netem',
             'limit', '1000',
@@ -47,7 +47,7 @@ def change_qdisc(ns, dev, pkt_loss, delay):
 
 def time_handshake(kex_alg, measurements):
     command = [
-        'ip', 'netns', 'exec', 'cli_ns',
+        'sudo', 'ip', 'netns', 'exec', 'cli_ns',
         './s_timer.o', kex_alg, str(measurements)
     ]
     result = run_subprocess(command)
@@ -59,7 +59,7 @@ def run_timers(kex_alg, timer_pool):
 
 def get_rtt_ms():
     command = [
-        'ip', 'netns', 'exec', 'cli_ns',
+        'sudo', 'ip', 'netns', 'exec', 'cli_ns',
         'ping', '10.0.0.1', '-c', '30'
     ]
 

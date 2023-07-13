@@ -1,8 +1,8 @@
 #!/bin/bash
 set -ex
 
-apt update
-apt install -y git \
+sudo apt update
+sudo apt install -y git \
                build-essential \
                autoconf \
                automake \

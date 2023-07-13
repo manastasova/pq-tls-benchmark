@@ -6,7 +6,7 @@ NGINX_APP=${ROOT}/tmp/nginx/sbin/nginx
 ##########################
 # Stop nginx
 ##########################
-ip netns exec srv_ns ${NGINX_APP} -s stop
+sudo ip netns exec srv_ns ${NGINX_APP} -s stop
 
 ##########################
 # Remove files
@@ -17,5 +17,5 @@ rm -f prime256v1.pem \
 ##########################
 # Remove network namespaces
 ##########################
-ip netns del cli_ns
-ip netns del srv_ns
+sudo ip netns del cli_ns
+sudo ip netns del srv_ns
