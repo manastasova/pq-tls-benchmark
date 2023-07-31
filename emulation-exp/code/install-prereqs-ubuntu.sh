@@ -2,6 +2,9 @@
 set -ex
 set -o pipefail
 
+# Default ubunt docker image already runs as root but doesn't have sudo installed
+which sudo || ( apt update && apt install sudo )
+
 sudo apt update
 sudo apt install -y git \
                build-essential \
@@ -18,10 +21,11 @@ NGINX_VERSION=1.17.5
 CMAKE_VERSION=3.18
 CMAKE_BUILD=3
 
-rm -rf tmp
-mkdir -p tmp
-cd tmp
-ROOT=$(pwd)
+TMP=$(mktemp -d)
+rm -rf ${TMP}
+mkdir -p ${TMP}
+cd ${TMP}
+ROOT=${TMP}
 INSATLL_DIR=${ROOT}/install
 rm -rf ${INSATLL_DIR}
 mkdir -p ${INSATLL_DIR}

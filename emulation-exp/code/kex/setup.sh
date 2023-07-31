@@ -47,11 +47,9 @@ function cleanup() {
     sudo ip netns del cli_ns
     sudo ip netns del srv_ns
 }
-trap cleanup INT TERM
+trap cleanup INT TERM EXIT
 
 ##########################
 # Start nginx
 ##########################
-sudo ip netns exec srv_ns ${S2ND} 10.0.0.1 4433 || /bin/true
-
-cleanup
+sudo ip netns exec srv_ns ${S2ND} 10.0.0.1 4433 &
