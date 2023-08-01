@@ -1,6 +1,6 @@
 # Build and run with:
 #
-# docker build -t pq-bench . && docker run -it --privileged -v $(pwd)/kex/:/pq-bench/kex pq-bench
+# docker build -t pq-bench . && docker run -it --privileged -v $(pwd)/kex/data:/pq-bench/kex/data pq-bench
 #
 # This will run the server in your current shell. Open another shell and run the experiment with:
 #
