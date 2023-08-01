@@ -52,4 +52,4 @@ trap cleanup INT TERM EXIT
 ##########################
 # Start nginx
 ##########################
-sudo ip netns exec srv_ns ${S2ND} 10.0.0.1 4433 &
+sudo ip netns exec srv_ns ${S2ND} -c PQ-TLS-1-3-2023-06-01 10.0.0.1 4433 &

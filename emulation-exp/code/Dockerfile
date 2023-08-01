@@ -17,5 +17,6 @@ WORKDIR /pq-bench
 
 RUN ./install-prereqs-ubuntu.sh
 WORKDIR /pq-bench/kex
+RUN make s_timer.o
 
 ENTRYPOINT ./setup.sh && python3 experiment.py

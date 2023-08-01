@@ -6,58 +6,57 @@
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
  */
+#include <netinet/in.h>
 #include <stdio.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
-#include <openssl/ssl.h>
-#include <openssl/err.h>
+#include <s2n.h>
 
 #include <time.h>
 
 #define NS_IN_MS 1000000.0
 #define MS_IN_S 1000
 
-const char* host = "10.0.0.1:4433";
+const char* host = "10.0.0.1";
 
-SSL* do_tls_handshake(SSL_CTX* ssl_ctx)
+int do_tls_handshake(struct s2n_connection *conn)
 {
-    BIO* conn;
-    SSL* ssl;
-    int ret;
+    int sockfd = -1;
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        fprintf(stderr, "Error: Could not create socket\n");
+        return -1;
+    } 
 
-    conn = BIO_new(BIO_s_connect());
-    if (!conn)
-    {
-        return 0;
+    struct sockaddr_in serv_addr; 
+    memset(&serv_addr, '\0', sizeof(serv_addr)); 
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(4433); 
+
+    if(inet_pton(AF_INET, host, &serv_addr.sin_addr) <= 0) {
+        fprintf(stderr, "Error: inet_pton failed\n");
+        return -1;
+    } 
+
+    if(connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+       fprintf(stderr, "Error: connect failed\n");
+       return -1;
+    } 
+
+    struct linger no_linger = {.l_onoff = 1, .l_linger = 0};
+    if (setsockopt(sockfd, SOL_SOCKET, SO_LINGER, (char*)&no_linger, sizeof(no_linger)) < 0) {
+        fprintf(stderr, "Error: setting LINGER=0 sockopt failed");
+        return -1;
     }
 
-    BIO_set_conn_hostname(conn, host);
-    BIO_set_conn_mode(conn, BIO_SOCK_NODELAY);
-
-    ssl = SSL_new(ssl_ctx);
-
-    SSL_set_bio(ssl, conn, conn);
-
-    /* ok, lets connect */
-    ret = SSL_connect(ssl);
-    if (ret <= 0)
-    {
-        ERR_print_errors_fp(stderr);
-        SSL_free(ssl);
-        return 0;
+    s2n_blocked_status blocked = S2N_BLOCKED;
+    if (s2n_negotiate(conn, &blocked) != S2N_SUCCESS) {
+        fprintf(stderr, "Error: %s. %s\n", s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
+        return -1;
     }
 
-#if defined(SOL_SOCKET) && defined(SO_LINGER)
-    {
-        struct linger no_linger = {.l_onoff = 1, .l_linger = 0};
-        int fd = SSL_get_fd(ssl);
-        if (fd >= 0)
-        {
-            (void)setsockopt(fd, SOL_SOCKET, SO_LINGER, (char*)&no_linger,
-                             sizeof(no_linger));
-        }
-    }
-#endif
-    return ssl;
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -120,6 +119,10 @@ int main(int argc, char* argv[])
         goto ossl_error;
     }
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
+
+    struct *s2n_config = s2n_config_new();
+    // TODO: point this at the trust store?
+    s2n_config_set_cipher_preferences("PQ-TLS-1-3-2023-06-01");
 
     while(measurements < measurements_to_make)
     {

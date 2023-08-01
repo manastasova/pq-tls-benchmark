@@ -75,6 +75,8 @@ pushd aws-lc
 rm -rf build
 mkdir -p build
 pushd build
+# AWS-LC requires golang modules, module proxy is blocked on some networks
+export GOPROXY=direct
 ${CMAKE} \
     -DFIPS=1 \
     -DCMAKE_PREFIX_PATH=${INSATLL_DIR} \
