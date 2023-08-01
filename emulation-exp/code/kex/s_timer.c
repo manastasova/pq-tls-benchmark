@@ -29,23 +29,23 @@ int do_tls_handshake(struct s2n_connection *conn)
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         fprintf(stderr, "Error: Could not create socket\n");
         return -1;
-    } 
+    }
 
-    struct sockaddr_in serv_addr; 
-    memset(&serv_addr, '\0', sizeof(serv_addr)); 
+    struct sockaddr_in serv_addr;
+    memset(&serv_addr, '\0', sizeof(serv_addr));
 
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(4433); 
+    serv_addr.sin_port = htons(4433);
 
     if(inet_pton(AF_INET, host, &serv_addr.sin_addr) < 1) {
         fprintf(stderr, "Error: inet_pton failed\n");
         return -1;
-    } 
+    }
 
     if(connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
        fprintf(stderr, "Error: connect failed with %s\n", strerror(errno));
        return errno;
-    } 
+    }
 
     struct linger no_linger = {.l_onoff = 1, .l_linger = 0};
     if (setsockopt(sockfd, SOL_SOCKET, SO_LINGER, (char*)&no_linger, sizeof(no_linger)) < 0) {
@@ -71,19 +71,6 @@ int do_tls_handshake(struct s2n_connection *conn)
 
 int main(int argc, char* argv[])
 {
-    int ret = -1;
-    if(argc != 3)
-    {
-        fprintf(stderr, "Usage: %s <kex_alg> <measurement_count>\n", argv[0]);
-        return 1;
-    }
-    /*const char* kex_alg = argv[1];*/
-    const size_t measurements_to_make = strtol(argv[2], 0, 10);
-    size_t measurements = 0;
-
-    struct timespec start, finish;
-    double* handshake_times_ms = malloc(measurements_to_make * sizeof(*handshake_times_ms));
-
     /*
     ssl_ctx = SSL_CTX_new(ssl_meth);
     if (!ssl_ctx)
@@ -113,7 +100,7 @@ int main(int argc, char* argv[])
     {
         goto s2n_err;
     }
-    ret = SSL_CTX_set1_groups_list(ssl_ctx, kex_alg);
+    ret = SSL_CTX_set1_groups_list(ssl_ctx, security_policy);
     if (ret != 1)
     {
         goto s2n_err;
@@ -126,6 +113,23 @@ int main(int argc, char* argv[])
     }
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
     */
+
+    int ret = -1;
+    if(argc != 3)
+    {
+        fprintf(stderr, "Usage: %s <security_policy> <measurements>\n", argv[0]);
+        return 1;
+    }
+
+    const char* security_policy = argv[1];
+    const size_t measurements = strtol(argv[2], 0, 10);
+
+    struct timespec start, finish;
+    double *handshake_times_ms = malloc(measurements * sizeof(double));
+    if (handshake_times_ms == NULL) {
+        fprintf(stderr, "Error: failed to allocate handshake time array\n");
+        goto err;
+    }
 
     s2n_init();
 
@@ -140,18 +144,20 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Error: failed to allocate new config\n");
         goto s2n_err;
     }
-    // TODO: configure !!
-    /*const char* ciphersuites = "TLS_AES_256_GCM_SHA384";*/
+
+    if (s2n_config_set_cipher_preferences(config, security_policy)) {
+        fprintf(stderr, "Error: failed to set security policy on config\n");
+        goto s2n_err;
+    }
+
     if (s2n_connection_set_config(conn, config)) {
         fprintf(stderr, "Error: failed to set config on connection\n");
         goto s2n_err;
     }
 
-
     // TODO: point this at the trust store?
 
-    while(measurements < measurements_to_make)
-    {
+    for (int i = 0; i < (int) measurements; i++) {
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         // TODO: pull socket creation up here?
         int sockfd = do_tls_handshake(conn);
@@ -177,13 +183,13 @@ int main(int argc, char* argv[])
             goto err;
         }
 
-        handshake_times_ms[measurements] = ((finish.tv_sec - start.tv_sec) * MS_IN_S) + ((finish.tv_nsec - start.tv_nsec) / NS_IN_MS);
-        measurements++;
+        handshake_times_ms[i] = ((finish.tv_sec - start.tv_sec) * MS_IN_S) + ((finish.tv_nsec - start.tv_nsec) / NS_IN_MS);
     }
 
-    for(size_t i = 0; i < measurements - 1; i++)
-    {
+    for(size_t i = 0; i < measurements; i++) {
+        printf("%f,", handshake_times_ms[i]);
     }
+    printf("%f", handshake_times_ms[measurements]);
 
     ret = 0;
     goto end;
@@ -194,6 +200,9 @@ s2n_err:
 err:
     ret = 1;
 end:
+    if (handshake_times_ms) {
+        free(handshake_times_ms);
+    }
     if (conn) {
         s2n_connection_free(conn);
     }

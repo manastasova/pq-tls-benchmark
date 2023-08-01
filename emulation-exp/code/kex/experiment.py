@@ -45,16 +45,16 @@ def change_qdisc(ns, dev, pkt_loss, delay):
     print(" > " + " ".join(command))
     run_subprocess(command)
 
-def time_handshake(kex_alg, measurements):
+def time_handshake(security_policy, measurements):
     command = [
         'sudo', 'ip', 'netns', 'exec', 'cli_ns',
-        './s_timer.o', kex_alg, str(measurements)
+        './s_timer.o', security_policy, str(measurements)
     ]
     result = run_subprocess(command)
     return [float(i) for i in result.strip().split(',')]
 
-def run_timers(kex_alg, timer_pool):
-    results_nested = timer_pool.starmap(time_handshake, [(kex_alg, MEASUREMENTS_PER_TIMER)] * TIMERS)
+def run_timers(security_policy, timer_pool):
+    results_nested = timer_pool.starmap(time_handshake, [(security_policy, MEASUREMENTS_PER_TIMER)] * TIMERS)
     return [item for sublist in results_nested for item in sublist]
 
 def get_rtt_ms():
@@ -81,21 +81,21 @@ for latency_ms in ['2.684ms', '15.458ms', '39.224ms', '97.73ms']:
     change_qdisc('srv_ns', 'srv_ve', 0, delay=latency_ms)
     rtt_str = get_rtt_ms()
 
-    for kex_alg in ['p256_kyber512']:
-        with open('data/{}_{}ms.csv'.format(kex_alg, rtt_str),'w') as out:
+    for security_policy in ['PQ-TLS-1-3-2023-06-01']:
+        with open('data/{}_{}ms.csv'.format(security_policy, rtt_str),'w') as out:
             #each line contains: pkt_loss, observations
             csv_out=csv.writer(out)
             for pkt_loss in [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3]:
                 change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency_ms)
                 change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency_ms)
-                result = run_timers(kex_alg, timer_pool)
+                result = run_timers(security_policy, timer_pool)
                 result.insert(0, pkt_loss)
                 csv_out.writerow(result)
 
             for pkt_loss in range(4, 21):
                 change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency_ms)
                 change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency_ms)
-                result = run_timers(kex_alg, timer_pool)
+                result = run_timers(security_policy, timer_pool)
                 result.insert(0, pkt_loss)
                 csv_out.writerow(result)
 
