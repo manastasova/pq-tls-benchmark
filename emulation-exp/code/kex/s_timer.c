@@ -75,7 +75,7 @@ int main(int argc, char* argv[])
     if(argc != 3)
     {
         fprintf(stderr, "Usage: %s <kex_alg> <measurement_count>\n", argv[0]);
-        goto end;
+        return 1;
     }
     /*const char* kex_alg = argv[1];*/
     const size_t measurements_to_make = strtol(argv[2], 0, 10);
@@ -127,6 +127,8 @@ int main(int argc, char* argv[])
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
     */
 
+    s2n_init();
+
     struct s2n_connection *conn = s2n_connection_new(S2N_CLIENT);
     if (conn == NULL) {
         fprintf(stderr, "Error: failed to allocate new connection\n");
@@ -144,6 +146,7 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Error: failed to set config on connection\n");
         goto s2n_err;
     }
+
 
     // TODO: point this at the trust store?
 
@@ -180,9 +183,7 @@ int main(int argc, char* argv[])
 
     for(size_t i = 0; i < measurements - 1; i++)
     {
-        printf("%f,", handshake_times_ms[i]);
     }
-    printf("%f", handshake_times_ms[measurements - 1]);
 
     ret = 0;
     goto end;
@@ -193,6 +194,12 @@ s2n_err:
 err:
     ret = 1;
 end:
-    s2n_connection_free(conn);
+    if (conn) {
+        s2n_connection_free(conn);
+    }
+    if (config) {
+        s2n_config_free(config);
+    }
+    s2n_cleanup();
     return ret;
 }

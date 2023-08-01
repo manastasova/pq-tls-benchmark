@@ -7,6 +7,7 @@ INSTALL_DIR=${ROOT}/install
 OPENSSL=$(which openssl)
 
 CERT_DIR=${ROOT}/certs
+mkdir -p ${CERT_DIR}
 S2ND=${ROOT}/s2n-tls/build/bin/s2nd
 
 ##########################
@@ -42,9 +43,9 @@ function cleanup() {
     sudo ip netns del cli_ns
     sudo ip netns del srv_ns
 }
-trap cleanup INT TERM EXIT
+trap cleanup INT KILL TERM EXIT
 
 ##########################
 # Start S2N Server
 ##########################
-sudo ip netns exec srv_ns ${S2ND} -c "PQ-TLS-1-3-2023-06-01" 10.0.0.1 4433 &
+sudo ip netns exec srv_ns ${S2ND} -c "PQ-TLS-1-3-2023-06-01" 10.0.0.1 4433
