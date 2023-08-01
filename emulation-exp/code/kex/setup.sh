@@ -2,17 +2,12 @@
 set -ex
 
 ROOT="$(dirname $(pwd))"
+INSTALL_DIR=${ROOT}/install
 
-OPENSSL=${ROOT}/tmp/openssl/apps/openssl
-OPENSSL_CNF=${ROOT}/tmp/openssl/apps/openssl.cnf
+OPENSSL=$(which openssl)
 
-NGINX_CONF_DIR=${ROOT}/tmp/nginx/conf
-S2ND=${ROOT}/tmp/s2n-tls/build/bin/s2nd
-
-##########################
-# Build s_timer
-##########################
-make s_timer.o
+CERT_DIR=${ROOT}/certs
+S2ND=${ROOT}/s2n-tls/build/bin/s2nd
 
 ##########################
 # Setup network namespaces
@@ -26,13 +21,13 @@ ${ROOT}/setup_ns.sh
 ${OPENSSL} ecparam -out prime256v1.pem -name prime256v1
 
 # generate CA key and cert
-${OPENSSL} req -x509 -new -newkey ec:prime256v1.pem -keyout ${NGINX_CONF_DIR}/CA.key -out ${NGINX_CONF_DIR}/CA.crt -nodes -subj "/CN=OQS test ecdsap256 CA" -days 365 -config ${OPENSSL_CNF}
+${OPENSSL} req -x509 -new -newkey ec:prime256v1.pem -keyout ${CERT_DIR}/CA.key -out ${CERT_DIR}/CA.crt -nodes -subj "/CN=OQS test ecdsap256 CA" -days 365
 
 # generate server CSR
-${OPENSSL} req -new -newkey ec:prime256v1.pem -keyout ${NGINX_CONF_DIR}/server.key -out ${NGINX_CONF_DIR}/server.csr -nodes -subj "/CN=oqstest CA ecdsap256" -config ${OPENSSL_CNF}
+${OPENSSL} req -new -newkey ec:prime256v1.pem -keyout ${CERT_DIR}/server.key -out ${CERT_DIR}/server.csr -nodes -subj "/CN=oqstest CA ecdsap256"
 
 # generate server cert
-${OPENSSL} x509 -req -in ${NGINX_CONF_DIR}/server.csr -out ${NGINX_CONF_DIR}/server.crt -CA ${NGINX_CONF_DIR}/CA.crt -CAkey ${NGINX_CONF_DIR}/CA.key -CAcreateserial -days 365
+${OPENSSL} x509 -req -in ${CERT_DIR}/server.csr -out ${CERT_DIR}/server.crt -CA ${CERT_DIR}/CA.crt -CAkey ${CERT_DIR}/CA.key -CAcreateserial -days 365
 
 function cleanup() {
     ##########################
@@ -50,6 +45,6 @@ function cleanup() {
 trap cleanup INT TERM EXIT
 
 ##########################
-# Start nginx
+# Start S2N Server
 ##########################
-sudo ip netns exec srv_ns ${S2ND} -c PQ-TLS-1-3-2023-06-01 10.0.0.1 4433 &
+sudo ip netns exec srv_ns ${S2ND} -c "PQ-TLS-1-3-2023-06-01" 10.0.0.1 4433 &
