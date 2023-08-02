@@ -139,9 +139,8 @@ int main(int argc, char* argv[])
     }
 
     for (int i = 0; i < (int) measurements; i++) {
+        handshake_times_ms[i] = 0;  // TODO need to account for this in analysis script?
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-        // TODO: pull socket creation up here?
-
         int sockfd = do_tls_handshake(conn);
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
         if (sockfd < 0) {
@@ -150,8 +149,6 @@ int main(int argc, char* argv[])
              * Non-retryable errors are caught by manual
              * inspection of logs, which has sufficed
              * for our purposes */
-            // TODO: need to account for 0 value in analysis script.
-            // TODO: need to scope down the retry condition to specific socket errors? or no retry?
             continue;
         }
 

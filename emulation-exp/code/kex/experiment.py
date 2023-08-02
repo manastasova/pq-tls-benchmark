@@ -81,26 +81,28 @@ security_policies = [
     'PQ-TLS-1-3-KYBER1024',
 ]
 
-for latency_ms in ['2.684ms', '15.458ms', '39.224ms', '97.73ms']:
-    # To get actual (emulated) RTT
-    change_qdisc('cli_ns', 'cli_ve', 0, delay=latency_ms)
-    change_qdisc('srv_ns', 'srv_ve', 0, delay=latency_ms)
-    rtt_str = get_rtt_ms()
+latencies = [
+    '0.08ms',   # localhost
+    '0.69ms',   # PDX => PDX
+    '21ms',     # PDX => SFO
+    '133ms',    # PDX => LHR
+    '230ms',    # PDX => BOM
+]
+loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3]
+loss_rates.extend(range(4, 21))
 
+for latency in latencies:
+    # get emulated RTT
+    change_qdisc('cli_ns', 'cli_ve', 0, delay=latency)
+    change_qdisc('srv_ns', 'srv_ve', 0, delay=latency)
+    rtt_str = get_rtt_ms()
     for security_policy in security_policies:
         with open('data/{}_{}ms.csv'.format(security_policy, rtt_str),'w') as out:
-            #each line contains: pkt_loss, observations
+            # each line contains: pkt_loss, observations
             csv_out=csv.writer(out)
-            for pkt_loss in [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3]:
-                change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency_ms)
-                change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency_ms)
-                result = run_timers(security_policy, timer_pool)
-                result.insert(0, pkt_loss)
-                csv_out.writerow(result)
-
-            for pkt_loss in range(4, 21):
-                change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency_ms)
-                change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency_ms)
+            for pkt_loss in loss_rates:
+                change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency)
+                change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency)
                 result = run_timers(security_policy, timer_pool)
                 result.insert(0, pkt_loss)
                 csv_out.writerow(result)
