@@ -75,13 +75,19 @@ timer_pool = Pool(processes=POOL_SIZE)
 if not os.path.exists('data'):
     os.makedirs('data')
 
+security_policies = [
+    'PQ-TLS-1-3-KYBER512',
+    'PQ-TLS-1-3-KYBER768',
+    'PQ-TLS-1-3-KYBER1024',
+]
+
 for latency_ms in ['2.684ms', '15.458ms', '39.224ms', '97.73ms']:
     # To get actual (emulated) RTT
     change_qdisc('cli_ns', 'cli_ve', 0, delay=latency_ms)
     change_qdisc('srv_ns', 'srv_ve', 0, delay=latency_ms)
     rtt_str = get_rtt_ms()
 
-    for security_policy in ['PQ-TLS-1-3-2023-06-01']:
+    for security_policy in security_policies:
         with open('data/{}_{}ms.csv'.format(security_policy, rtt_str),'w') as out:
             #each line contains: pkt_loss, observations
             csv_out=csv.writer(out)
