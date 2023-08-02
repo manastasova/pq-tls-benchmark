@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
     }
 
     const char* trust_store_dir = NULL;
-    const char* trust_store_path = "../certs/CA.pem";
+    const char* trust_store_path = "../certs/CA.crt";
     if (s2n_config_set_verification_ca_location(config, trust_store_dir, trust_store_path)) {
         fprintf(stderr, "Error: failed to set trust store on config\n");
         goto s2n_err;
