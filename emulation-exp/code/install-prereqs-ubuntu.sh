@@ -11,8 +11,7 @@ rm -rf ${INSTALL_DIR}
 mkdir -p ${INSATLL_DIR}
 
 # build AWS-LC
-rm -rf aws-lc
-git clone --single-branch --branch main https://github.com/WillChilds-Klein/aws-lc
+[[ -d aws-lc ]] || git clone --single-branch --branch pq-bench https://github.com/WillChilds-Klein/aws-lc
 pushd aws-lc
 rm -rf build
 mkdir -p build
@@ -30,8 +29,7 @@ popd    # build
 popd    # aws-lc
 
 # build s2n
-rm -rf s2n-tls
-git clone --single-branch --branch main https://github.com/WillChilds-Klein/s2n-tls
+[[ -d s2n-tls ]] || git clone --single-branch --branch pq-bench https://github.com/WillChilds-Klein/s2n-tls
 pushd s2n-tls
 rm -rf build
 mkdir -p build

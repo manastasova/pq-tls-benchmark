@@ -23,13 +23,13 @@ ${ROOT}/setup_ns.sh
 ${OPENSSL} ecparam -out prime256v1.pem -name prime256v1
 
 # generate CA key and cert
-${OPENSSL} req -x509 -new -newkey ec:prime256v1.pem -keyout ${CERT_DIR}/CA.key -out ${CERT_DIR}/CA.crt -nodes -subj "/CN=OQS test ecdsap256 CA" -days 365
+${OPENSSL} req -x509 -new -newkey ec:prime256v1.pem -keyout ${CERT_DIR}/CA.key -out ${CERT_DIR}/CA.pem -nodes -subj "/CN=OQS test ecdsap256 CA" -days 365
 
 # generate server CSR
 ${OPENSSL} req -new -newkey ec:prime256v1.pem -keyout ${CERT_DIR}/server.key -out ${CERT_DIR}/server.csr -nodes -subj "/CN=oqstest CA ecdsap256"
 
 # generate server cert
-${OPENSSL} x509 -req -in ${CERT_DIR}/server.csr -out ${CERT_DIR}/server.crt -CA ${CERT_DIR}/CA.crt -CAkey ${CERT_DIR}/CA.key -CAcreateserial -days 365
+${OPENSSL} x509 -req -in ${CERT_DIR}/server.csr -out ${CERT_DIR}/server.pem -CA ${CERT_DIR}/CA.pem -CAkey ${CERT_DIR}/CA.key -CAcreateserial -days 365
 
 function cleanup() {
     ##########################
@@ -63,7 +63,7 @@ trap cleanup INT KILL TERM EXIT
 sudo ip netns exec srv_ns ${S2ND} \
     --ciphers "PQ-TLS-1-3-2023-06-01" \
     --parallelize \
-    --cert ${CERT_DIR}/server.crt \
+    --cert ${CERT_DIR}/server.pem \
     --key ${CERT_DIR}/server.key \
     --negotiate \
     --no-session-ticket \

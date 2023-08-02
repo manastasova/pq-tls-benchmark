@@ -18,6 +18,8 @@
 
 #include <s2n.h>
 
+#define UNUSED(x) (void)(x)
+
 #define NS_IN_MS 1000000.0
 #define MS_IN_S 1000
 
@@ -69,51 +71,15 @@ int do_tls_handshake(struct s2n_connection *conn)
     return sockfd;
 }
 
+unsigned char verify_host(const char *host_name, size_t host_name_len, void *data) {
+    UNUSED(host_name);
+    UNUSED(host_name_len);
+    UNUSED(data);
+    return 1;
+}
+
 int main(int argc, char* argv[])
 {
-    /*
-    ssl_ctx = SSL_CTX_new(ssl_meth);
-    if (!ssl_ctx)
-    {
-        goto s2n_err;
-    }
-
-    SSL_CTX_set_mode(ssl_ctx, SSL_MODE_AUTO_RETRY);
-    SSL_CTX_set_quiet_shutdown(ssl_ctx, 1);
-
-    ret = SSL_CTX_set_min_proto_version(ssl_ctx, TLS1_3_VERSION);
-    if (ret != 1)
-    {
-        goto s2n_err;
-    }
-
-    ret = SSL_CTX_set_max_proto_version(ssl_ctx, TLS1_3_VERSION);
-    if (ret != 1)
-    {
-        goto s2n_err;
-    }
-
-    SSL_CTX_set_options(ssl_ctx, SSL_OP_NO_COMPRESSION);
-
-    ret = SSL_CTX_set_ciphersuites(ssl_ctx, ciphersuites);
-    if (ret != 1)
-    {
-        goto s2n_err;
-    }
-    ret = SSL_CTX_set1_groups_list(ssl_ctx, security_policy);
-    if (ret != 1)
-    {
-        goto s2n_err;
-    }
-
-    ret = SSL_CTX_load_verify_locations(ssl_ctx, "../tmp/nginx/conf/CA.crt", 0);
-    if(ret != 1)
-    {
-        goto s2n_err;
-    }
-    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER, NULL);
-    */
-
     int ret = -1;
     if(argc != 3)
     {
@@ -145,8 +111,25 @@ int main(int argc, char* argv[])
         goto s2n_err;
     }
 
+    if (s2n_config_wipe_trust_store(config)) {
+        fprintf(stderr, "Error: failed to wipe trust store on config\n");
+        goto s2n_err;
+    }
+
+    const char* trust_store_dir = NULL;
+    const char* trust_store_path = "../certs/CA.pem";
+    if (s2n_config_set_verification_ca_location(config, trust_store_dir, trust_store_path)) {
+        fprintf(stderr, "Error: failed to set trust store on config\n");
+        goto s2n_err;
+    }
+
     if (s2n_config_set_cipher_preferences(config, security_policy)) {
         fprintf(stderr, "Error: failed to set security policy on config\n");
+        goto s2n_err;
+    }
+
+    if (s2n_config_set_verify_host_callback(config, verify_host, NULL)) {
+        fprintf(stderr, "Error: failed to set verify host callback on config\n");
         goto s2n_err;
     }
 
@@ -155,11 +138,10 @@ int main(int argc, char* argv[])
         goto s2n_err;
     }
 
-    // TODO: point this at the trust store?
-
     for (int i = 0; i < (int) measurements; i++) {
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         // TODO: pull socket creation up here?
+
         int sockfd = do_tls_handshake(conn);
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
         if (sockfd < 0) {
@@ -168,9 +150,9 @@ int main(int argc, char* argv[])
              * Non-retryable errors are caught by manual
              * inspection of logs, which has sufficed
              * for our purposes */
-            // TODO: need to scope down the retry condition to specific socket errors
-            //continue;
-            goto err;
+            // TODO: need to account for 0 value in analysis script.
+            // TODO: need to scope down the retry condition to specific socket errors? or no retry?
+            continue;
         }
 
         s2n_blocked_status unused;
@@ -187,9 +169,8 @@ int main(int argc, char* argv[])
     }
 
     for(size_t i = 0; i < measurements; i++) {
-        printf("%f,", handshake_times_ms[i]);
+        printf(i < measurements-1 ? "%f," : "%f", handshake_times_ms[i]);
     }
-    printf("%f", handshake_times_ms[measurements]);
 
     ret = 0;
     goto end;
