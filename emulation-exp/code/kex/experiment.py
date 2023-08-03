@@ -89,7 +89,6 @@ latencies = [
     '230ms',    # PDX => BOM
 ]
 loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3]
-loss_rates.extend(range(4, 21))
 
 for latency in latencies:
     # get emulated RTT
