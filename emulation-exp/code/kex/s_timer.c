@@ -22,6 +22,7 @@
 
 #define NS_IN_MS 1000000.0
 #define MS_IN_S 1000
+#define SOCKERR -1
 
 const char* host = "10.0.0.1";
 
@@ -30,7 +31,7 @@ int do_tls_handshake(struct s2n_connection *conn)
     int sockfd = -1;
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         fprintf(stderr, "Error: Could not create socket\n");
-        return -1;
+        return SOCKERR;
     }
 
     struct sockaddr_in serv_addr;
@@ -41,31 +42,31 @@ int do_tls_handshake(struct s2n_connection *conn)
 
     if(inet_pton(AF_INET, host, &serv_addr.sin_addr) < 1) {
         fprintf(stderr, "Error: inet_pton failed\n");
-        return -1;
+        return SOCKERR;
     }
 
     if(connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
        fprintf(stderr, "Error: connect failed with %s\n", strerror(errno));
-       return errno;
+       return SOCKERR;
     }
 
     struct linger no_linger = {.l_onoff = 1, .l_linger = 0};
     if (setsockopt(sockfd, SOL_SOCKET, SO_LINGER, (char*)&no_linger, sizeof(no_linger)) < 0) {
         fprintf(stderr, "Error: setting LINGER=0 sockopt failed with %s\n", strerror(errno));
-        return errno;
+        return SOCKERR;
     }
 
     if (s2n_connection_set_fd(conn, sockfd) != S2N_SUCCESS) {
         fprintf(stderr, "Error: failed to set fd on connection. %s: %s\n",
                 s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
-        return -1;
+        return SOCKERR;
     }
 
     s2n_blocked_status unused;
     if (s2n_negotiate(conn, &unused) != S2N_SUCCESS) {
         fprintf(stderr, "Error: failed to negotiate. %s: %s\n",
                 s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
-        return -1;
+        return SOCKERR;
     }
 
     return sockfd;
@@ -143,7 +144,7 @@ int main(int argc, char* argv[])
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         int sockfd = do_tls_handshake(conn);
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
-        if (sockfd < 0) {
+        if (sockfd == SOCKERR) {
             /* Retry since at high packet loss rates,
              * the connect() syscall fails sometimes.
              * Non-retryable errors are caught by manual
