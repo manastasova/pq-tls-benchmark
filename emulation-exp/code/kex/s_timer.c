@@ -15,6 +15,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <time.h>
+#include <unistd.h>
 
 #include <s2n.h>
 
@@ -53,12 +54,14 @@ int do_tls_handshake(struct s2n_connection *conn)
     struct linger no_linger = {.l_onoff = 1, .l_linger = 0};
     if (setsockopt(sockfd, SOL_SOCKET, SO_LINGER, (char*)&no_linger, sizeof(no_linger)) < 0) {
         fprintf(stderr, "Error: setting LINGER=0 sockopt failed with %s\n", strerror(errno));
+        close(sockfd);
         return SOCKERR;
     }
 
     if (s2n_connection_set_fd(conn, sockfd) != S2N_SUCCESS) {
         fprintf(stderr, "Error: failed to set fd on connection. %s: %s\n",
                 s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
+        close(sockfd);
         return SOCKERR;
     }
 
@@ -66,6 +69,7 @@ int do_tls_handshake(struct s2n_connection *conn)
     if (s2n_negotiate(conn, &unused) != S2N_SUCCESS) {
         fprintf(stderr, "Error: failed to negotiate. %s: %s\n",
                 s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
+        close(sockfd);
         return SOCKERR;
     }
 
@@ -140,6 +144,7 @@ int main(int argc, char* argv[])
     }
 
     for (int i = 0; i < (int) measurements; i++) {
+        //usleep(((rand() % 10) + 1) * 1000);    // sleep between 1 and 10ms
         handshake_times_ms[i] = 0;  // TODO need to account for this in analysis script?
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         int sockfd = do_tls_handshake(conn);
@@ -155,10 +160,11 @@ int main(int argc, char* argv[])
 
         s2n_blocked_status unused;
         if(s2n_shutdown(conn, &unused) != S2N_SUCCESS || s2n_connection_wipe(conn) != S2N_SUCCESS) {
+            close(sockfd);
             goto s2n_err;
         }
 
-        if (shutdown(sockfd, SHUT_RDWR)) {
+        if (close(sockfd)) {
             fprintf(stderr, "Error: socket shutdown failed with error %s\n", strerror(errno));
             goto err;
         }

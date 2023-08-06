@@ -68,6 +68,7 @@ sudo ip netns exec srv_ns ${S2ND} \
     --negotiate \
     --no-session-ticket \
     --self-service-blinding \
+    --non-blocking \
     10.0.0.1 \
     4433 \
     1>/dev/null

@@ -3,11 +3,10 @@ from multiprocessing import Pool
 import os
 import subprocess
 
-# Our experiment used POOL_SIZE = 40
-POOL_SIZE = 4
-
-MEASUREMENTS_PER_TIMER = 100
-TIMERS = 50
+# only measure on single parallel client until we figure out why s2nd hangs
+# after a while on >1 parallel connections
+TIMERS = 1
+MEASUREMENTS_PER_TIMER = 500
 
 def run_subprocess(command, working_dir='.', expected_returncode=0):
     result = subprocess.run(
@@ -21,27 +20,17 @@ def run_subprocess(command, working_dir='.', expected_returncode=0):
     assert result.returncode == expected_returncode
     return result.stdout.decode('utf-8')
 
-def change_qdisc(ns, dev, pkt_loss, delay):
-    if pkt_loss == 0:
-        command = [
-            'sudo', 'ip', 'netns', 'exec', ns,
-            'tc', 'qdisc', 'change',
-            'dev', dev, 'root', 'netem',
-            'limit', '1000',
-            'delay', delay,
-            'rate', '1000mbit'
-        ]
-    else:
-        command = [
-            'sudo', 'ip', 'netns', 'exec', ns,
-            'tc', 'qdisc', 'change',
-            'dev', dev, 'root', 'netem',
-            'limit', '1000',
-            'loss', '{0}%'.format(pkt_loss),
-            'delay', delay,
-            'rate', '1000mbit'
-        ]
-
+def change_qdisc(ns, dev, pkt_loss, rtt_millis):
+    command = [
+        'sudo', 'ip', 'netns', 'exec', ns,
+        'tc', 'qdisc', 'change',
+        'dev', dev, 'root', 'netem',
+        'limit', '1000',
+        'delay', f"{rtt_millis/2.0}ms",
+        'rate', '1000mbit'
+    ]
+    if pkt_loss > 0:
+        command.extend(["loss", f"{pkt_loss}%"])
     print(" > " + " ".join(command))
     run_subprocess(command)
 
@@ -70,41 +59,43 @@ def get_rtt_ms():
     return result_fmt[4].replace(".", "p")
 
 # Main
-timer_pool = Pool(processes=POOL_SIZE)
+timer_pool = Pool(processes=TIMERS)
 
 if not os.path.exists('data'):
     os.makedirs('data')
 
+# TODO [childw] add security policies for ECDH at each target security level
+# (128, 192, 256)
 security_policies = [
+    'PQ-TLS-1-3-P256',
+    'PQ-TLS-1-3-P384',
+    'PQ-TLS-1-3-P521',
     'PQ-TLS-1-3-KYBER512',
     'PQ-TLS-1-3-KYBER768',
     'PQ-TLS-1-3-KYBER1024',
 ]
 
-latencies = [
-    '0.08ms',   # localhost
-    '0.69ms',   # PDX => PDX
-    '21ms',     # PDX => SFO
-    '133ms',    # PDX => LHR
-    '230ms',    # PDX => BOM
+rtt_latencies = [
+    0.08,   # localhost
+    0.69,   # PDX => PDX
+    21.0,   # PDX => SFO
+    133.0,  # PDX => LHR
+    230.0,  # PDX => BOM
 ]
-loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3]
+loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3, 10]
 
-for latency in latencies:
+for rtt in rtt_latencies:
     # get emulated RTT
-    change_qdisc('cli_ns', 'cli_ve', 0, delay=latency)
-    change_qdisc('srv_ns', 'srv_ve', 0, delay=latency)
+    change_qdisc('cli_ns', 'cli_ve', 0, rtt)
+    change_qdisc('srv_ns', 'srv_ve', 0, rtt)
     rtt_str = get_rtt_ms()
     for security_policy in security_policies:
         with open('data/{}_{}ms.csv'.format(security_policy, rtt_str),'w') as out:
             # each line contains: pkt_loss, observations
             csv_out=csv.writer(out)
             for pkt_loss in loss_rates:
-                change_qdisc('cli_ns', 'cli_ve', pkt_loss, delay=latency)
-                change_qdisc('srv_ns', 'srv_ve', pkt_loss, delay=latency)
+                change_qdisc('cli_ns', 'cli_ve', pkt_loss, rtt)
+                change_qdisc('srv_ns', 'srv_ve', pkt_loss, rtt)
                 result = run_timers(security_policy, timer_pool)
                 result.insert(0, pkt_loss)
                 csv_out.writerow(result)
-
-timer_pool.close()
-timer_pool.join()
