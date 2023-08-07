@@ -55,14 +55,23 @@ def print_stats(data_dir=DATA_DIR):
     key_fn = lambda row: row[1]  # group by delay
     stats = sorted(stats, key=key_fn)
     for delay, group in groupby(stats, key_fn):
-        print(f"DELAY: {delay}")
+        title = f"RTT: {delay}ms"
+        print(title + "\n" + "=" * len(title))
 
-        # below is a garbage special-case hack to make sure KYBER1024 is considered "larger"
-        # than KYBER768
+        # below is a garbage special-case hack to ensure 1024 > 768 > 512
+        # for sorting KEX strings
         def _compare_row_kex(row1, row2):
             k1, k2 = row1[0], row2[0]
             if k1 == k2:
                 return 0
+            if k1 == "KYBER512" and k2 == "KYBER1024":
+                return -1
+            if k1 == "KYBER1024" and k2 == "KYBER512":
+                return 1
+            if k1 == "KYBER512" and k2 == "KYBER768":
+                return -1
+            if k1 == "KYBER768" and k2 == "KYBER512":
+                return 1
             if k1 == "KYBER768" and k2 == "KYBER1024":
                 return -1
             if k1 == "KYBER1024" and k2 == "KYBER768":
@@ -71,7 +80,7 @@ def print_stats(data_dir=DATA_DIR):
 
         group = sorted(group, key=cmp_to_key(_compare_row_kex))  # sort by KEX name
         formatted = list(format_row(row) for row in group)
-        print(tabulate(headers + formatted, headers="firstrow"))
+        print(tabulate(headers + formatted, headers="firstrow", tablefmt="github"))
         print()
 
 
