@@ -15,7 +15,7 @@ def format_row(row):
         f"{round(row[1], 2)}ms",  # delay
         f"{str(row[2])}%",  # loss %
         round(row[3], 2),  # mean
-        round(row[4], 2),  # variance
+        round(row[4], 2),  # std. dev
         round(row[5], 2),  # p0
         round(row[6], 2),  # p50
         round(row[7], 2),  # p90
@@ -25,7 +25,7 @@ def format_row(row):
 
 def print_stats(data_dir=DATA_DIR):
     headers = [
-        ["KEX", "delay", "loss %", "mean", "variance", "p0", "p50", "p90", "p99"]
+        ["KEX", "delay", "loss %", "mean", "std. dev", "p0", "p50", "p90", "p99"]
     ]
     stats = []
     for fname in os.listdir(data_dir):
@@ -44,7 +44,7 @@ def print_stats(data_dir=DATA_DIR):
                     delay,
                     loss,
                     mean(row),
-                    variance(row),
+                    pstdev(row),
                     min(row),
                     percentiles[50 - 1],
                     percentiles[90 - 1],
