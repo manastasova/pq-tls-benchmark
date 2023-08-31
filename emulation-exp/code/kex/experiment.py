@@ -64,8 +64,6 @@ timer_pool = Pool(processes=TIMERS)
 if not os.path.exists('data'):
     os.makedirs('data')
 
-# TODO [childw] add security policies for ECDH at each target security level
-# (128, 192, 256)
 security_policies = [
     'PQ-TLS-1-3-P256',
     'PQ-TLS-1-3-P384',

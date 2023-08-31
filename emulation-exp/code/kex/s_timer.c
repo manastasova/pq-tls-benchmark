@@ -143,9 +143,12 @@ int main(int argc, char* argv[])
         goto s2n_err;
     }
 
-    for (int i = 0; i < (int) measurements; i++) {
+    const int warmup_conns = 3;
+    for (int i = -1 * warmup_conns; i < (int) measurements; i++) {
         //usleep(((rand() % 10) + 1) * 1000);    // sleep between 1 and 10ms
-        handshake_times_ms[i] = 0;  // TODO need to account for this in analysis script?
+        if (i >= 0) {
+            handshake_times_ms[i] = 0;  // TODO need to account for this in analysis script?
+        }
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         int sockfd = do_tls_handshake(conn);
         clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
@@ -167,6 +170,10 @@ int main(int argc, char* argv[])
         if (close(sockfd)) {
             fprintf(stderr, "Error: socket shutdown failed with error %s\n", strerror(errno));
             goto err;
+        }
+
+        if (i < 0) {
+            continue;
         }
 
         handshake_times_ms[i] = ((finish.tv_sec - start.tv_sec) * MS_IN_S) + ((finish.tv_nsec - start.tv_nsec) / NS_IN_MS);
