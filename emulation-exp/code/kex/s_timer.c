@@ -8,7 +8,9 @@
  */
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -58,6 +60,20 @@ int do_tls_handshake(struct s2n_connection *conn)
         return SOCKERR;
     }
 
+    // TODO [childw] remove this option from socket after |s2n_negotiate| returns?
+    int state = 1;
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &state, sizeof(state)) < 0) {
+        fprintf(stderr, "Error: setting TCP_NODELAY sockopt failed with %s\n", strerror(errno));
+        close(sockfd);
+        return SOCKERR;
+    }
+
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &state, sizeof(state)) < 0) {
+        fprintf(stderr, "Error: setting TCP_QUICKACK sockopt failed with %s\n", strerror(errno));
+        close(sockfd);
+        return SOCKERR;
+    }
+
     if (s2n_connection_set_fd(conn, sockfd) != S2N_SUCCESS) {
         fprintf(stderr, "Error: failed to set fd on connection. %s: %s\n",
                 s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
@@ -71,6 +87,16 @@ int do_tls_handshake(struct s2n_connection *conn)
                 s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
         close(sockfd);
         return SOCKERR;
+    }
+
+    s2n_blocked_status blocked;
+    while (s2n_negotiate(conn, &blocked) != S2N_SUCCESS) {
+        if (s2n_error_get_type(s2n_errno) != S2N_ERR_T_BLOCKED) {
+            fprintf(stderr, "Error: failed to negotiate. %s: %s\n",
+            s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
+            close(sockfd);
+            return SOCKERR;
+        }
     }
 
     return sockfd;
