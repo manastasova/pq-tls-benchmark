@@ -102,6 +102,39 @@ int do_tls_handshake(struct s2n_connection *conn)
     return sockfd;
 }
 
+int read_body(struct s2n_connection *conn) {
+    int content_recieved = 0;
+    int content_length = 0;
+    int recieved;
+    uint8_t buffer[65536];
+    s2n_blocked_status unused;
+    while ((recieved = s2n_recv(conn, buffer, sizeof(buffer), &unused)) > 0) {
+        if (recieved < 0 && s2n_error_get_type(s2n_errno) != S2N_ERR_T_BLOCKED) {
+            fprintf(stderr, "Error reading HTTP response: %s. %s\n", s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
+            return errno;
+        }
+        if (content_recieved == 0) {
+            const char *content_len_header = "Content-Length:";
+            char *substr = strstr((char*) buffer, content_len_header);
+            if (!substr) {
+                continue;
+            }
+            content_length = strtol(substr + strlen(content_len_header), NULL, 10);
+            const char *body_begin = strstr((char*) buffer, "\n\n");
+            if (!body_begin) {
+                continue;
+            }
+        } else {
+            content_recieved += recieved;
+        }
+        if (content_recieved == content_length) {
+            break;
+        }
+    }
+
+    return S2N_SUCCESS;
+}
+
 unsigned char verify_host(const char *host_name, size_t host_name_len, void *data) {
     UNUSED(host_name);
     UNUSED(host_name_len);
@@ -177,7 +210,6 @@ int main(int argc, char* argv[])
         }
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         int sockfd = do_tls_handshake(conn);
-        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
         if (sockfd == SOCKERR) {
             /* Retry since at high packet loss rates,
              * the connect() syscall fails sometimes.
@@ -185,6 +217,11 @@ int main(int argc, char* argv[])
              * inspection of logs, which has sufficed
              * for our purposes */
             continue;
+        }
+
+        if (read_body(conn) != S2N_SUCCESS) {
+            fprintf(stderr, "Error: error reading body%s\n", strerror(errno));
+            goto err;
         }
 
         s2n_blocked_status unused;
@@ -197,6 +234,8 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Error: socket shutdown failed with error %s\n", strerror(errno));
             goto err;
         }
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
 
         if (i < 0) {
             continue;

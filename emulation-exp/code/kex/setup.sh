@@ -65,7 +65,7 @@ sudo ip netns exec srv_ns ${S2ND} \
     --parallelize \
     --cert ${CERT_DIR}/server.crt \
     --key ${CERT_DIR}/server.key \
-    --negotiate \
+    --https-bench $(( 150 * 1024 )) \
     --no-session-ticket \
     --self-service-blinding \
     --non-blocking \
