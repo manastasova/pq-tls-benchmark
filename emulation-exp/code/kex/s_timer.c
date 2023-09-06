@@ -102,9 +102,9 @@ int do_tls_handshake(struct s2n_connection *conn)
     return sockfd;
 }
 
-int read_body(struct s2n_connection *conn) {
-    int content_recieved = 0;
-    int content_length = 0;
+int read_body(struct s2n_connection *conn, int expected) {
+    int total_recieved = -1;
+    int content_length = -1;
     int recieved;
     uint8_t buffer[65536];
     s2n_blocked_status unused;
@@ -113,26 +113,26 @@ int read_body(struct s2n_connection *conn) {
             fprintf(stderr, "Error reading HTTP response: %s. %s\n", s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
             return errno;
         }
-        if (content_recieved == 0) {
-            const char *content_len_header = "Content-Length:";
-            char *substr = strstr((char*) buffer, content_len_header);
-            if (!substr) {
-                continue;
-            }
-            content_length = strtol(substr + strlen(content_len_header), NULL, 10);
-            const char *body_begin = strstr((char*) buffer, "\n\n");
-            if (!body_begin) {
-                continue;
+        if (total_recieved < 0) {
+            if (content_length < 0) {
+                const char *content_len_header = "Content-Length: ";
+                char *substr = strstr((char*) buffer, content_len_header);
+                if (!substr) {
+                    continue;
+                }
+                content_length = strtol(substr + strlen(content_len_header), NULL, 10);
+            } else if (strstr((char*) buffer, "\r\n") == (char*) buffer) {
+                total_recieved = 0;
             }
         } else {
-            content_recieved += recieved;
+            total_recieved += recieved;
         }
-        if (content_recieved == content_length) {
+        if (total_recieved == content_length) {
             break;
         }
     }
 
-    return S2N_SUCCESS;
+    return expected == total_recieved ? S2N_SUCCESS : -1;
 }
 
 unsigned char verify_host(const char *host_name, size_t host_name_len, void *data) {
@@ -219,7 +219,7 @@ int main(int argc, char* argv[])
             continue;
         }
 
-        if (read_body(conn) != S2N_SUCCESS) {
+        if (read_body(conn, 150 * 1024) != S2N_SUCCESS) {
             fprintf(stderr, "Error: error reading body%s\n", strerror(errno));
             goto err;
         }

@@ -68,7 +68,6 @@ sudo ip netns exec srv_ns ${S2ND} \
     --https-bench $(( 150 * 1024 )) \
     --no-session-ticket \
     --self-service-blinding \
-    --non-blocking \
     10.0.0.1 \
     4433 \
     1>/dev/null
