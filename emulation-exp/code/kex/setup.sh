@@ -65,7 +65,8 @@ sudo ip netns exec srv_ns ${S2ND} \
     --parallelize \
     --cert ${CERT_DIR}/server.crt \
     --key ${CERT_DIR}/server.key \
-    --https-bench $(( 150 * 1024 )) \
+    `# NOTE: 0 denotes "let client choose size by senging GET w/ qeury param giving # bytes` \
+    --https-bench 0 \
     --no-session-ticket \
     --self-service-blinding \
     10.0.0.1 \

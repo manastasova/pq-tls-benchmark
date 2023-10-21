@@ -34,16 +34,18 @@ def change_qdisc(ns, dev, pkt_loss, rtt_millis):
     print(" > " + " ".join(command))
     run_subprocess(command)
 
-def time_handshake(security_policy, measurements):
+def time_handshake(security_policy, measurements, xfer_size):
+    assert xfer_size >= 0
     command = [
         'sudo', 'ip', 'netns', 'exec', 'cli_ns',
-        './s_timer.o', security_policy, str(measurements)
+        './s_timer.o', security_policy, str(measurements), str(xfer_size),
     ]
     result = run_subprocess(command)
     return [float(i) for i in result.strip().split(',')]
 
-def run_timers(security_policy, timer_pool):
-    results_nested = timer_pool.starmap(time_handshake, [(security_policy, MEASUREMENTS_PER_TIMER)] * TIMERS)
+def run_timers(security_policy, timer_pool, xfer_size):
+    results_nested = timer_pool.starmap(time_handshake, [(security_policy,
+        MEASUREMENTS_PER_TIMER, xfer_size)] * TIMERS)
     return [item for sublist in results_nested for item in sublist]
 
 def get_rtt_ms():
@@ -80,7 +82,16 @@ rtt_latencies = [
     133.0,  # PDX => LHR
     230.0,  # PDX => BOM
 ]
+
 loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3, 10]
+
+xfer_sizes = [
+    0,              # handshake-only, close immediately
+    2e10*10e1,      # 1     KiB
+    2e10*10e2,      # 10    KiB
+    2e10*10e3,      # 100   KiB
+]
+
 
 for rtt in rtt_latencies:
     # get emulated RTT
@@ -94,6 +105,7 @@ for rtt in rtt_latencies:
             for pkt_loss in loss_rates:
                 change_qdisc('cli_ns', 'cli_ve', pkt_loss, rtt)
                 change_qdisc('srv_ns', 'srv_ve', pkt_loss, rtt)
-                result = run_timers(security_policy, timer_pool)
+                #result = run_timers(security_policy, timer_pool, xfer_size)
+                result = run_timers(security_policy, timer_pool, 0)
                 result.insert(0, pkt_loss)
                 csv_out.writerow(result)

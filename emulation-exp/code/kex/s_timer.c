@@ -102,7 +102,19 @@ int do_tls_handshake(struct s2n_connection *conn)
     return sockfd;
 }
 
-int read_body(struct s2n_connection *conn, int expected) {
+int request_body(struct s2n_connection *conn, uint32_t n_bytes) {
+    char req[1024];
+    for (size_t i = 0; i < sizeof(req); i++) {
+        req[i] = '\0';
+    }
+    const char *fmt = "GET /?q=%u HTTP/1.1\r\n\r\n";
+    sprintf(req, fmt, n_bytes);
+    s2n_blocked_status blocked;
+    size_t bytes_written = s2n_send(conn, req, strlen(req), &blocked);
+    return bytes_written == strlen(req) ? S2N_SUCCESS : S2N_FAILURE;
+}
+
+int read_body(struct s2n_connection *conn, int n_bytes) {
     int total_recieved = -1;
     int content_length = -1;
     int recieved;
@@ -113,6 +125,7 @@ int read_body(struct s2n_connection *conn, int expected) {
             fprintf(stderr, "Error reading HTTP response: %s. %s\n", s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
             return errno;
         }
+        buffer[recieved] = 0;
         if (total_recieved < 0) {
             if (content_length < 0) {
                 const char *content_len_header = "Content-Length: ";
@@ -132,7 +145,7 @@ int read_body(struct s2n_connection *conn, int expected) {
         }
     }
 
-    return expected == total_recieved ? S2N_SUCCESS : -1;
+    return n_bytes == total_recieved ? S2N_SUCCESS : S2N_FAILURE;
 }
 
 unsigned char verify_host(const char *host_name, size_t host_name_len, void *data) {
@@ -145,14 +158,15 @@ unsigned char verify_host(const char *host_name, size_t host_name_len, void *dat
 int main(int argc, char* argv[])
 {
     int ret = -1;
-    if(argc != 3)
+    if(argc != 4)
     {
-        fprintf(stderr, "Usage: %s <security_policy> <measurements>\n", argv[0]);
+        fprintf(stderr, "Usage: %s <security_policy> <measurements> <n_bytes>\n", argv[0]);
         return 1;
     }
 
     const char* security_policy = argv[1];
     const size_t measurements = strtol(argv[2], 0, 10);
+    const uint32_t n_bytes = strtol(argv[3], 0, 10);
 
     struct timespec start, finish;
     double *handshake_times_ms = malloc(measurements * sizeof(double));
@@ -219,9 +233,15 @@ int main(int argc, char* argv[])
             continue;
         }
 
-        if (read_body(conn, 150 * 1024) != S2N_SUCCESS) {
-            fprintf(stderr, "Error: error reading body%s\n", strerror(errno));
-            goto err;
+        if (n_bytes > 0) {
+            if (request_body(conn, n_bytes) != S2N_SUCCESS) {
+                fprintf(stderr, "Error: error requesting %u bytes: %s\n", n_bytes, strerror(errno));
+                goto err;
+            }
+            if (read_body(conn, n_bytes) != S2N_SUCCESS) {
+                fprintf(stderr, "Error: error reading body: %s\n", strerror(errno));
+                goto err;
+            }
         }
 
         s2n_blocked_status unused;
