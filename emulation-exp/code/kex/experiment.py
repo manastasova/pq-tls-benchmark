@@ -48,17 +48,14 @@ def run_timers(security_policy, timer_pool, xfer_size):
         MEASUREMENTS_PER_TIMER, xfer_size)] * TIMERS)
     return [item for sublist in results_nested for item in sublist]
 
-def get_rtt_ms():
+def get_rtt_ms() -> float:
     command = [
         'sudo', 'ip', 'netns', 'exec', 'cli_ns',
         'ping', '10.0.0.1', '-c', '30'
     ]
-
-    print(" > " + " ".join(command))
     result = run_subprocess(command)
-
     result_fmt = result.splitlines()[-1].split("/")
-    return result_fmt[4].replace(".", "p")
+    return float(result_fmt[4])
 
 # Main
 timer_pool = Pool(processes=TIMERS)
@@ -87,25 +84,22 @@ loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3, 10]
 
 xfer_sizes = [
     0,              # handshake-only, close immediately
-    2e10*10e1,      # 1     KiB
-    2e10*10e2,      # 10    KiB
-    2e10*10e3,      # 100   KiB
+    2**10*10e0,     # 1     KiB
 ]
 
-
-for rtt in rtt_latencies:
-    # get emulated RTT
-    change_qdisc('cli_ns', 'cli_ve', 0, rtt)
-    change_qdisc('srv_ns', 'srv_ve', 0, rtt)
-    rtt_str = get_rtt_ms()
-    for security_policy in security_policies:
-        with open('data/{}_{}ms.csv'.format(security_policy, rtt_str),'w') as out:
-            # each line contains: pkt_loss, observations
-            csv_out=csv.writer(out)
-            for pkt_loss in loss_rates:
-                change_qdisc('cli_ns', 'cli_ve', pkt_loss, rtt)
-                change_qdisc('srv_ns', 'srv_ve', pkt_loss, rtt)
-                #result = run_timers(security_policy, timer_pool, xfer_size)
-                result = run_timers(security_policy, timer_pool, 0)
-                result.insert(0, pkt_loss)
-                csv_out.writerow(result)
+with open("data/data.csv", 'w') as out:
+    csv_out=csv.writer(out)
+    csv_out.writerow(["policy", "rtt", "pkt_loss", "xfer_bytes", "latency (ms)"])
+    for rtt in rtt_latencies:
+        change_qdisc('cli_ns', 'cli_ve', 0, rtt)
+        change_qdisc('srv_ns', 'srv_ve', 0, rtt)
+        for pkt_loss in loss_rates:
+            measured_rtt = get_rtt_ms()
+            change_qdisc('cli_ns', 'cli_ve', pkt_loss, measured_rtt)
+            change_qdisc('srv_ns', 'srv_ve', pkt_loss, measured_rtt)
+            for security_policy in security_policies:
+                for xfer_size in xfer_sizes:
+                    xfer_size = int(xfer_size)
+                    print(f"running {security_policy}\t\t\t{measured_rtt}\t{pkt_loss} \t{xfer_size}")
+                    for time in run_timers(security_policy, timer_pool, xfer_size):
+                        csv_out.writerow([security_policy, str(measured_rtt), str(pkt_loss), str(xfer_size), time])
