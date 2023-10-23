@@ -7,29 +7,12 @@ INSTALL_DIR=${ROOT}/install
 OPENSSL=$(which openssl)
 
 CERT_DIR=${ROOT}/certs
-rm -rf ${CERT_DIR}
-mkdir -p ${CERT_DIR}
 S2ND=${ROOT}/s2n-tls/build/bin/s2nd
 
 ##########################
 # Setup network namespaces
 ##########################
 ${ROOT}/setup_ns.sh
-
-##########################
-# Generate ECDSA P-256 cert
-##########################
-# generate curve parameters
-${OPENSSL} ecparam -out prime256v1.crt -name prime256v1
-
-# generate CA key and cert
-${OPENSSL} req -x509 -new -newkey ec:prime256v1.crt -keyout ${CERT_DIR}/CA.key -out ${CERT_DIR}/CA.crt -nodes -subj "/CN=OQS test ecdsap256 CA" -days 365
-
-# generate server CSR
-${OPENSSL} req -new -newkey ec:prime256v1.crt -keyout ${CERT_DIR}/server.key -out ${CERT_DIR}/server.csr -nodes -subj "/CN=oqstest CA ecdsap256"
-
-# generate server cert
-${OPENSSL} x509 -req -in ${CERT_DIR}/server.csr -out ${CERT_DIR}/server.crt -CA ${CERT_DIR}/CA.crt -CAkey ${CERT_DIR}/CA.key -CAcreateserial -days 365
 
 function cleanup() {
     ##########################

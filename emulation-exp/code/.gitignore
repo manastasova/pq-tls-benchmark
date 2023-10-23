@@ -1,8 +1,5 @@
 aws-lc
-certs
 install
 s2n-tls
 kex/s_timer.o
-*.crt
-*.key
 .venv
