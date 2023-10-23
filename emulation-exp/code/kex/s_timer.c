@@ -81,14 +81,6 @@ int do_tls_handshake(struct s2n_connection *conn)
         return SOCKERR;
     }
 
-    s2n_blocked_status unused;
-    if (s2n_negotiate(conn, &unused) != S2N_SUCCESS) {
-        fprintf(stderr, "Error: failed to negotiate. %s: %s\n",
-                s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
-        close(sockfd);
-        return SOCKERR;
-    }
-
     s2n_blocked_status blocked;
     while (s2n_negotiate(conn, &blocked) != S2N_SUCCESS) {
         if (s2n_error_get_type(s2n_errno) != S2N_ERR_T_BLOCKED) {

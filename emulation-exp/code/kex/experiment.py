@@ -102,4 +102,5 @@ with open("data/data.csv", 'w') as out:
                     xfer_size = int(xfer_size)
                     print(f"running {security_policy}\t\t\t{measured_rtt}\t{pkt_loss} \t{xfer_size}")
                     for time in run_timers(security_policy, timer_pool, xfer_size):
-                        csv_out.writerow([security_policy, str(measured_rtt), str(pkt_loss), str(xfer_size), time])
+                        row = [security_policy, str(measured_rtt), str(pkt_loss/100), str(xfer_size), time]
+                        csv_out.writerow(row)
