@@ -93,14 +93,13 @@ with open("data/data.csv", 'w') as out:
     for rtt in rtt_latencies:
         change_qdisc('cli_ns', 'cli_ve', 0, rtt)
         change_qdisc('srv_ns', 'srv_ve', 0, rtt)
+        measured_rtt = get_rtt_ms()
         for pkt_loss in loss_rates:
-            measured_rtt = get_rtt_ms()
             change_qdisc('cli_ns', 'cli_ve', pkt_loss, measured_rtt)
             change_qdisc('srv_ns', 'srv_ve', pkt_loss, measured_rtt)
             for security_policy in security_policies:
                 for xfer_size in xfer_sizes:
                     xfer_size = int(xfer_size)
-                    print(f"running {security_policy}\t\t\t{measured_rtt}\t{pkt_loss} \t{xfer_size}")
                     for time in run_timers(security_policy, timer_pool, xfer_size):
                         row = [security_policy, str(measured_rtt), str(pkt_loss/100), str(xfer_size), time]
                         csv_out.writerow(row)
