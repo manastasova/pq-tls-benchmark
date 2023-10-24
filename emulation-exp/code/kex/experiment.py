@@ -40,8 +40,8 @@ def time_handshake(security_policy, measurements, xfer_size):
         'sudo', 'ip', 'netns', 'exec', 'cli_ns',
         './s_timer.o', security_policy, str(measurements), str(xfer_size),
     ]
-    result = run_subprocess(command)
-    return [float(i) for i in result.strip().split(',')]
+    rows = [row.split(',') for row in run_subprocess(command).strip().split('\n')]
+    return [[float(row[0]), int(row[1])] for row in rows]
 
 def run_timers(security_policy, timer_pool, xfer_size):
     results_nested = timer_pool.starmap(time_handshake, [(security_policy,
@@ -89,7 +89,7 @@ xfer_sizes = [
 
 with open("data/data.csv", 'w') as out:
     csv_out=csv.writer(out)
-    csv_out.writerow(["policy", "rtt", "pkt_loss", "xfer_bytes", "latency (ms)"])
+    csv_out.writerow(["policy", "rtt", "pkt_loss", "xfer_bytes", "latency (ms)", "retransmissions"])
     for rtt in rtt_latencies:
         change_qdisc('cli_ns', 'cli_ve', 0, rtt)
         change_qdisc('srv_ns', 'srv_ve', 0, rtt)
@@ -98,8 +98,15 @@ with open("data/data.csv", 'w') as out:
             change_qdisc('cli_ns', 'cli_ve', pkt_loss, measured_rtt)
             change_qdisc('srv_ns', 'srv_ve', pkt_loss, measured_rtt)
             for security_policy in security_policies:
-                for xfer_size in xfer_sizes:
-                    xfer_size = int(xfer_size)
-                    for time in run_timers(security_policy, timer_pool, xfer_size):
-                        row = [security_policy, str(measured_rtt), str(pkt_loss/100), str(xfer_size), time]
+                for xfer_size in map(int, xfer_sizes):
+                    for in_row in run_timers(security_policy, timer_pool, xfer_size):
+                        time, retransmissions = in_row
+                        row = [
+                            security_policy,
+                            str(measured_rtt),
+                            str(pkt_loss/100),
+                            str(xfer_size),
+                            time,
+                            retransmissions,
+                        ]
                         csv_out.writerow(row)

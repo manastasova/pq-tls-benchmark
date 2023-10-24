@@ -167,6 +167,12 @@ int main(int argc, char* argv[])
         goto err;
     }
 
+    uint32_t *tcp_retransmissions = malloc(measurements * sizeof(uint32_t));
+    if (tcp_retransmissions == NULL) {
+        fprintf(stderr, "Error: failed to allocate tcp retrans count array\n");
+        goto err;
+    }
+
     s2n_init();
 
     struct s2n_connection *conn = s2n_connection_new(S2N_CLIENT);
@@ -235,6 +241,11 @@ int main(int argc, char* argv[])
                 goto err;
             }
         }
+        struct tcp_info info;
+        size_t info_len;
+        if (getsockopt(sockfd, SOL_TCP, TCP_INFO, &info, (socklen_t*) &info_len) < 0) {
+            fprintf(stderr, "Error: cannot get TCP info with error %s\n", strerror(errno));
+        }
 
         s2n_blocked_status unused;
         if(s2n_shutdown(conn, &unused) != S2N_SUCCESS || s2n_connection_wipe(conn) != S2N_SUCCESS) {
@@ -254,10 +265,11 @@ int main(int argc, char* argv[])
         }
 
         handshake_times_ms[i] = ((finish.tv_sec - start.tv_sec) * MS_IN_S) + ((finish.tv_nsec - start.tv_nsec) / NS_IN_MS);
+        tcp_retransmissions[i] = info.tcpi_total_retrans;
     }
 
     for(size_t i = 0; i < measurements; i++) {
-        printf(i < measurements-1 ? "%f," : "%f", handshake_times_ms[i]);
+        printf("%f,%u\n", handshake_times_ms[i], tcp_retransmissions[i]);
     }
 
     ret = 0;
@@ -271,6 +283,9 @@ err:
 end:
     if (handshake_times_ms) {
         free(handshake_times_ms);
+    }
+    if (tcp_retransmissions) {
+        free(tcp_retransmissions);
     }
     if (conn) {
         s2n_connection_free(conn);
