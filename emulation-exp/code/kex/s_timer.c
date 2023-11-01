@@ -241,6 +241,9 @@ int main(int argc, char* argv[])
                 goto err;
             }
         }
+
+        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
+
         struct tcp_info info;
         size_t info_len;
         if (getsockopt(sockfd, SOL_TCP, TCP_INFO, &info, (socklen_t*) &info_len) < 0) {
@@ -257,8 +260,6 @@ int main(int argc, char* argv[])
             fprintf(stderr, "Error: socket shutdown failed with error %s\n", strerror(errno));
             goto err;
         }
-
-        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
 
         if (i < 0) {
             continue;
