@@ -41,7 +41,7 @@ def time_handshake(security_policy, measurements, xfer_size):
         './s_timer.o', security_policy, str(measurements), str(xfer_size),
     ]
     rows = [row.split(',') for row in run_subprocess(command).strip().split('\n')]
-    return [[float(row[0]), int(row[1])] for row in rows]
+    return [list(map(float, row)) for row in rows]
 
 def run_timers(security_policy, timer_pool, xfer_size):
     results_nested = timer_pool.starmap(time_handshake, [(security_policy,
@@ -89,7 +89,9 @@ xfer_sizes = [
 
 with open("data/data.csv", 'w') as out:
     csv_out=csv.writer(out)
-    csv_out.writerow(["policy", "rtt", "pkt_loss", "xfer_bytes", "latency (ms)", "retransmissions"])
+    csv_out.writerow(
+        ["policy", "rtt", "pkt_loss", "xfer_bytes", "latency", "tcpi_retransmits", "tcpi_retrans", "tcpi_total_retrans"]
+        )
     for rtt in rtt_latencies:
         change_qdisc('cli_ns', 'cli_ve', 0, rtt)
         change_qdisc('srv_ns', 'srv_ve', 0, rtt)
@@ -100,13 +102,11 @@ with open("data/data.csv", 'w') as out:
             for security_policy in security_policies:
                 for xfer_size in map(int, xfer_sizes):
                     for in_row in run_timers(security_policy, timer_pool, xfer_size):
-                        time, retransmissions = in_row
                         row = [
                             security_policy,
                             str(measured_rtt),
                             str(pkt_loss/100),
                             str(xfer_size),
-                            time,
-                            retransmissions,
+                            *in_row,
                         ]
                         csv_out.writerow(row)

@@ -160,19 +160,6 @@ int main(int argc, char* argv[])
     const size_t measurements = strtol(argv[2], 0, 10);
     const uint32_t n_bytes = strtol(argv[3], 0, 10);
 
-    struct timespec start, finish;
-    double *handshake_times_ms = malloc(measurements * sizeof(double));
-    if (handshake_times_ms == NULL) {
-        fprintf(stderr, "Error: failed to allocate handshake time array\n");
-        goto err;
-    }
-
-    uint32_t *tcp_retransmissions = malloc(measurements * sizeof(uint32_t));
-    if (tcp_retransmissions == NULL) {
-        fprintf(stderr, "Error: failed to allocate tcp retrans count array\n");
-        goto err;
-    }
-
     s2n_init();
 
     struct s2n_connection *conn = s2n_connection_new(S2N_CLIENT);
@@ -215,11 +202,9 @@ int main(int argc, char* argv[])
     }
 
     const int warmup_conns = 3;
+    struct timespec start, finish;
     for (int i = -1 * warmup_conns; i < (int) measurements; i++) {
         //usleep(((rand() % 10) + 1) * 1000);    // sleep between 1 and 10ms
-        if (i >= 0) {
-            handshake_times_ms[i] = 0;  // TODO need to account for this in analysis script?
-        }
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
         int sockfd = do_tls_handshake(conn);
         if (sockfd == SOCKERR) {
@@ -261,16 +246,19 @@ int main(int argc, char* argv[])
             goto err;
         }
 
+        // no output on warmup run
         if (i < 0) {
             continue;
         }
 
-        handshake_times_ms[i] = ((finish.tv_sec - start.tv_sec) * MS_IN_S) + ((finish.tv_nsec - start.tv_nsec) / NS_IN_MS);
-        tcp_retransmissions[i] = info.tcpi_total_retrans;
-    }
+        const double handshake_time_ms = ((finish.tv_sec - start.tv_sec) * MS_IN_S) + ((finish.tv_nsec - start.tv_nsec) / NS_IN_MS);
 
-    for(size_t i = 0; i < measurements; i++) {
-        printf("%f,%u\n", handshake_times_ms[i], tcp_retransmissions[i]);
+        printf("%f,%u,%u,%u\n",
+                handshake_time_ms,
+                info.tcpi_retransmits,
+                info.tcpi_retrans,
+                info.tcpi_total_retrans
+        );
     }
 
     ret = 0;
@@ -282,12 +270,6 @@ s2n_err:
 err:
     ret = 1;
 end:
-    if (handshake_times_ms) {
-        free(handshake_times_ms);
-    }
-    if (tcp_retransmissions) {
-        free(tcp_retransmissions);
-    }
     if (conn) {
         s2n_connection_free(conn);
     }
