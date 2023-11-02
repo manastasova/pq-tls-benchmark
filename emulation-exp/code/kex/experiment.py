@@ -1,4 +1,5 @@
 import csv
+import datetime
 from multiprocessing import Pool
 import os
 import subprocess
@@ -31,7 +32,7 @@ def change_qdisc(ns, dev, pkt_loss, rtt_millis):
     ]
     if pkt_loss > 0:
         command.extend(["loss", f"{pkt_loss}%"])
-    print(" > " + " ".join(command))
+    print(str(datetime.datetime.now()) + " > " + " ".join(command))
     run_subprocess(command)
 
 def time_handshake(security_policy, measurements, xfer_size):
