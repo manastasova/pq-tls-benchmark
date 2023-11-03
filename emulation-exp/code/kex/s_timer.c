@@ -253,11 +253,12 @@ int main(int argc, char* argv[])
 
         const double handshake_time_ms = ((finish.tv_sec - start.tv_sec) * MS_IN_S) + ((finish.tv_nsec - start.tv_nsec) / NS_IN_MS);
 
-        printf("%f,%u,%u,%u\n",
+        printf("%f,%u,%u,%u,%u\n",
                 handshake_time_ms,
                 info.tcpi_retransmits,
                 info.tcpi_retrans,
-                info.tcpi_total_retrans
+                info.tcpi_total_retrans,
+                info.tcpi_lost
         );
     }
 

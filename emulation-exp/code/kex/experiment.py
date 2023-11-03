@@ -90,9 +90,11 @@ xfer_sizes = [
 
 with open("data/data.csv", 'w') as out:
     csv_out=csv.writer(out)
-    csv_out.writerow(
-        ["policy", "rtt", "pkt_loss", "xfer_bytes", "latency", "tcpi_retransmits", "tcpi_retrans", "tcpi_total_retrans"]
-        )
+    csv_out.writerow([
+        "policy", "rtt", "pkt_loss", "xfer_bytes", "latency",
+        "tcpi_retransmits", "tcpi_retrans", "tcpi_total_retrans",
+        "tcpi_lost",
+    ])
     for rtt in rtt_latencies:
         change_qdisc('cli_ns', 'cli_ve', 0, rtt)
         change_qdisc('srv_ns', 'srv_ve', 0, rtt)
