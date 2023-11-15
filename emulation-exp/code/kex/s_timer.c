@@ -60,7 +60,6 @@ int do_tls_handshake(struct s2n_connection *conn)
         return SOCKERR;
     }
 
-    // TODO [childw] remove this option from socket after |s2n_negotiate| returns?
     int state = 1;
     if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &state, sizeof(state)) < 0) {
         fprintf(stderr, "Error: setting TCP_NODELAY sockopt failed with %s\n", strerror(errno));
@@ -91,6 +90,14 @@ int do_tls_handshake(struct s2n_connection *conn)
         }
     }
 
+    // Unset TCP_QUICKACK after the handshake completes
+    state = 0;
+    if (setsockopt(sockfd, IPPROTO_TCP, TCP_QUICKACK, &state, sizeof(state)) < 0) {
+        fprintf(stderr, "Error: unsetting TCP_QUICKACK sockopt failed with %s\n", strerror(errno));
+        close(sockfd);
+        return SOCKERR;
+    }
+
     return sockfd;
 }
 
@@ -113,7 +120,10 @@ int read_body(struct s2n_connection *conn, int n_bytes) {
     uint8_t buffer[65536];
     s2n_blocked_status unused;
     while ((recieved = s2n_recv(conn, buffer, sizeof(buffer), &unused)) > 0) {
-        if (recieved < 0 && s2n_error_get_type(s2n_errno) != S2N_ERR_T_BLOCKED) {
+        if (s2n_error_get_type(s2n_errno) == S2N_ERR_T_BLOCKED) {
+            continue;
+        }
+        if (recieved < 0) {
             fprintf(stderr, "Error reading HTTP response: %s. %s\n", s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
             return errno;
         }
