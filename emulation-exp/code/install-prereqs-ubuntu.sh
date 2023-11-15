@@ -17,7 +17,6 @@ rm -rf build
 mkdir -p build
 pushd build
 cmake \
-    -DFIPS=1 \
     -DCMAKE_PREFIX_PATH=${INSATLL_DIR} \
     -DCMAKE_INSTALL_PREFIX=${INSATLL_DIR} \
     -DCMAKE_VERBOSE_MAKEFILE=1 \
