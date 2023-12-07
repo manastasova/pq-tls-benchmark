@@ -2,12 +2,34 @@ import csv
 import datetime
 from multiprocessing import Pool
 import os
+import re
 import subprocess
 
 # only measure on single parallel client until we figure out why s2nd hangs
 # after a while on >1 parallel connections
 TIMERS = 1
 MEASUREMENTS_PER_TIMER = 1000
+
+def get_mtu(ns: str) -> int:
+    mtu_re = re.compile(r".+ mtu ([0-9]+) .+")
+    cmd = []
+    dev = 'eth0'
+    if ns:
+        cmd += ['sudo', 'ip', 'netns', 'exec', f"{ns}_ns"]
+        dev = f"{ns}_ve"
+    cmd += ['ip', 'link', 'show', 'dev', dev]
+    try:
+        out = run_subprocess(cmd)
+        return int(out.match(r.decode()).group(1))
+    except:
+        return 9001
+
+def set_mtu(ns: str, mtu: int):
+    cmd = [
+        'sudo', 'ip', 'netns', 'exec', f"{ns}_ns",
+        'ip', 'link', 'set', 'mtu', str(mtu), f"{ns}_ve",
+    ]
+    run_subprocess(cmd)
 
 def run_subprocess(command, working_dir='.', expected_returncode=0):
     result = subprocess.run(
@@ -85,13 +107,22 @@ loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3, 10]
 
 xfer_sizes = [
     0,              # handshake-only, close immediately
-    2**10*10e0,     # 1     KiB
 ]
+
+DEFAULT_MTU = get_mtu(None)
+assert get_mtu('cli') == get_mtu('srv')
+mtus = [
+    DEFAULT_MTU,
+]
+if DEFAULT_MTU < 9000:
+    mtus += [9000]
+if DEFAULT_MTU != 1500:
+    mtus += [1500]
 
 with open("data/data.csv", 'w') as out:
     csv_out=csv.writer(out)
     csv_out.writerow([
-        "policy", "rtt", "pkt_loss", "xfer_bytes", "latency",
+        "policy", "rtt", "pkt_loss", "xfer_bytes", "mtu", "latency",
         "tcpi_retransmits", "tcpi_retrans", "tcpi_total_retrans",
         "tcpi_lost",
     ])
@@ -104,12 +135,16 @@ with open("data/data.csv", 'w') as out:
             change_qdisc('srv_ns', 'srv_ve', pkt_loss, measured_rtt)
             for security_policy in security_policies:
                 for xfer_size in map(int, xfer_sizes):
-                    for in_row in run_timers(security_policy, timer_pool, xfer_size):
-                        row = [
-                            security_policy,
-                            str(measured_rtt),
-                            str(pkt_loss/100),
-                            str(xfer_size),
-                            *in_row,
-                        ]
-                        csv_out.writerow(row)
+                    for mtu in mtus:
+                        set_mtu('cli', mtu)
+                        set_mtu('srv', mtu)
+                        for in_row in run_timers(security_policy, timer_pool, xfer_size):
+                            row = [
+                                security_policy,
+                                str(measured_rtt),
+                                str(pkt_loss/100),
+                                str(xfer_size),
+                                str(mtu),
+                                *in_row,
+                            ]
+                            csv_out.writerow(row)
