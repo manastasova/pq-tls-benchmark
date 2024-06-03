@@ -1,23 +1,27 @@
-## Requirements
+# KEX Simulation
 
-1. A sufficiently recent version of Ubuntu (18.04+)
-2. A sufficiently recent version of the Linux kernel (4.12+)
-3. If you want to use the liboqs version used by the most recent version of the paper, a CPU that supports the following extensions:
-	- avx2
-	- bmi1
-	- bmi2
-	- popcnt
-	- sse2
+1. Run `./install-prereqs-ubuntu.sh` to fetch, build, and install s2n and other
+   dependencies
+1. Modify `kex/experiment.py` to you liking for the given experiment
+1. In one terminal, run the server process: `( cd kex/ && ./setup.sh )`
+1. In another, create a virtual env
+    ```
+    python3 -m virtualenv .venv \
+        && . .venv/bin/activate \
+        && python3 -m pip install -r requirements.txt
+    ```
+1. Run the experiment client(s) and process the results
+    ```
+    pushd kex/ \
+        && make \
+        && python3 experiment.py \
+        && popd \
+        && python3 stats.py
+    ```
 
-## Steps
-
-1. Run `./install-prereqs-ubuntu.sh`.
-
-	- If your CPU does not satisfy requirement 3 above, you might have to either modify the build files in the [xvzcf/pq-tls-experiment branch](https://github.com/xvzcf/liboqs) yourself or change [this line](https://github.com/xvzcf/liboqs/blob/pq-tls-experiment/config/detect-cpu-extensions.c) to pull the most current liboqs from `https://github.com/open-quantum-safe/liboqs`
-
-
-2. To run the key-exchange experiments, navigate to `kex`, and run `./setup.sh` followed by `python3 experiment.py`. To cleanup, run `./teardown.sh`.
-
-3. To run the signature experiments, navigate to `sig`, and run `./setup.sh` followed by `./run.sh`. To cleanup, run `./teardown.sh`.
-
-Make sure to cleanup before switching from the key-exchange experiments to the signature ones and vice-versa.
+Tested on the below system:
+```
+$ uname -a && cat /etc/*release | grep DESCRIPTION
+Linux ip-172-31-89-138 6.2.0-1014-aws #14~22.04.1-Ubuntu SMP Thu Oct  5 22:43:45 UTC 2023 x86_64 x86_64 x86_64 GNU/Linux
+DISTRIB_DESCRIPTION="Ubuntu 22.04.2 LTS"
+```
