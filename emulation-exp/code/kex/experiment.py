@@ -119,6 +119,15 @@ if DEFAULT_MTU < 9000:
 if DEFAULT_MTU != 1500:
     mtus += [1500]
 
+# TODO: delete below for full measurements...
+rtt_latencies = [0]
+loss_rates = [0]
+mtus = [DEFAULT_MTU]
+security_policies = [
+    'PQ-TLS-1-3-P384',
+    'PQ-TLS-1-3-KYBER768-x25519',
+]
+
 with open("data/data.csv", 'w') as out:
     csv_out=csv.writer(out)
     csv_out.writerow([
@@ -127,9 +136,10 @@ with open("data/data.csv", 'w') as out:
         "tcpi_lost",
     ])
     for rtt in rtt_latencies:
-        change_qdisc('cli_ns', 'cli_ve', 0, rtt)
-        change_qdisc('srv_ns', 'srv_ve', 0, rtt)
-        measured_rtt = get_rtt_ms()
+        if rtt > 0:
+            change_qdisc('cli_ns', 'cli_ve', 0, rtt)
+            change_qdisc('srv_ns', 'srv_ve', 0, rtt)
+        measured_rtt = get_rtt_ms() if rtt > 0 else 0
         for pkt_loss in loss_rates:
             change_qdisc('cli_ns', 'cli_ve', pkt_loss, measured_rtt)
             change_qdisc('srv_ns', 'srv_ve', pkt_loss, measured_rtt)
