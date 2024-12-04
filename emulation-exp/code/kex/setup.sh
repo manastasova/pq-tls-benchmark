@@ -18,8 +18,7 @@ function cleanup() {
     ##########################
     # Remove files
     ##########################
-    rm -f prime256v1.crt \
-          s_timer.o
+    rm -f s_timer.o
 
     ##########################
     # Remove network namespaces
@@ -42,18 +41,35 @@ trap cleanup INT KILL TERM EXIT
 
 ##########################
 # Start S2N Server
+
+# new_certs/server_rsa4096_cert.pem
+# new_certs/server_rsa4096_key.pem
+# new_certs/ca_rsa4096_cert.pem
+
+# server-cas.pem
+# server-key.pem
+# CA.crt
+
+# --cert ${CERT_DIR}/new_certs/server_rsa4096_cert.pem \
+# --key ${CERT_DIR}/new_certs/server_rsa4096_key.pem \
+# --mutualAuth \
+# --ca-file ${CERT_DIR}/new_certs/ca_rsa4096_cert.pem \
+
+# --cert ${CERT_DIR}/server-cas.pem \
+# --key ${CERT_DIR}/server-key.pem \
+# --mutualAuth \
+# --ca-file ${CERT_DIR}/CA.crt \
 ##########################
 sudo ip netns exec srv_ns ${S2ND} \
     --ciphers "PQ-TLS-1-3-2023-06-01" \
-    --parallelize \
-    --cert ${CERT_DIR}/server.crt \
-    --key ${CERT_DIR}/server.key \
-    --key-log s2n.keys \
-    `# NOTE: 0 denotes "let client choose size by senging GET w/ qeury param giving # bytes` \
+    --cert ${CERT_DIR}/new_certs/server_rsa4096_cert.pem  \
+    --key ${CERT_DIR}/new_certs/server_rsa4096_key.pem \
     --https-bench 0 \
-    --corked-io \
+    --mutualAuth \
+    --ca-file ${CERT_DIR}/new_certs/ca_rsa4096_cert.pem\
     --no-session-ticket \
     --self-service-blinding \
+    --corked-io \
     10.0.0.1 \
     4433 \
     1>/dev/null

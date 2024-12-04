@@ -21,6 +21,9 @@
 
 #include <s2n.h>
 
+#define CLI_AUTH_REQ
+#define SERV_VERIF_DISABLE
+
 #define UNUSED(x) (void)(x)
 
 #define NS_IN_MS 1000000.0
@@ -88,6 +91,7 @@ int do_tls_handshake(struct s2n_connection *conn)
             close(sockfd);
             return SOCKERR;
         }
+
     }
 
     // Unset TCP_QUICKACK after the handshake completes
@@ -150,11 +154,55 @@ int read_body(struct s2n_connection *conn, int n_bytes) {
     return n_bytes == total_recieved ? S2N_SUCCESS : S2N_FAILURE;
 }
 
-unsigned char verify_host(const char *host_name, size_t host_name_len, void *data) {
+uint8_t verify_host(const char *host_name, size_t host_name_len, void *data) {
     UNUSED(host_name);
     UNUSED(host_name_len);
     UNUSED(data);
     return 1;
+}
+
+char *load_file_to_cstring(const char *path)
+{
+    FILE *pem_file = fopen(path, "rb");
+    if (!pem_file) {
+        fprintf(stderr, "Failed to open file %s: '%s'\n", path, strerror(errno));
+        return NULL;
+    }
+
+    /* Make sure we can fit the pem into the output buffer */
+    if (fseek(pem_file, 0, SEEK_END) < 0) {
+        fprintf(stderr, "Failed calling fseek: '%s'\n", strerror(errno));
+        fclose(pem_file);
+        return NULL;
+    }
+
+    const ssize_t pem_file_size = ftell(pem_file);
+    if (pem_file_size < 0) {
+        fprintf(stderr, "Failed calling ftell: '%s'\n", strerror(errno));
+        fclose(pem_file);
+        return NULL;
+    }
+
+    rewind(pem_file);
+
+    char *pem_out = malloc(pem_file_size + 1);
+    if (pem_out == NULL) {
+        fprintf(stderr, "Failed allocating memory\n");
+        fclose(pem_file);
+        return NULL;
+    }
+
+    if (fread(pem_out, sizeof(char), pem_file_size, pem_file) < (size_t) pem_file_size) {
+        fprintf(stderr, "Failed reading file: '%s'\n", strerror(errno));
+        free(pem_out);
+        fclose(pem_file);
+        return NULL;
+    }
+
+    pem_out[pem_file_size] = '\0';
+    fclose(pem_file);
+
+    return pem_out;
 }
 
 int main(int argc, char* argv[])
@@ -191,6 +239,7 @@ int main(int argc, char* argv[])
 
     const char* trust_store_dir = NULL;
     const char* trust_store_path = "../certs/CA.crt";
+    //const char* trust_store_path = "../certs/new_certs/ca_rsa4096_cert.pem";
     if (s2n_config_set_verification_ca_location(config, trust_store_dir, trust_store_path)) {
         fprintf(stderr, "Error: failed to set trust store on config\n");
         goto s2n_err;
@@ -200,11 +249,37 @@ int main(int argc, char* argv[])
         fprintf(stderr, "Error: failed to set security policy on config\n");
         goto s2n_err;
     }
+    
+    #ifdef CLI_AUTH_REQ
+    s2n_config_set_client_auth_type(config, S2N_CERT_AUTH_REQUIRED);
 
-    if (s2n_config_set_verify_host_callback(config, verify_host, NULL)) {
-        fprintf(stderr, "Error: failed to set verify host callback on config\n");
-        goto s2n_err;
+    // const char *client_cert_path = "../certs/new_certs/client_rsa4096_cert.pem";
+    // const char *client_key_path = "../certs/new_certs/client_rsa4096_key.pem";
+
+    const char *client_cert_path = "../certs/client-cas.pem";
+    const char *client_key_path = "../certs/client-key.pem";
+
+    // Load the file into a string
+    char *client_cert = load_file_to_cstring(client_cert_path);
+    char *client_key = load_file_to_cstring(client_key_path);
+
+    struct s2n_cert_chain_and_key *chain_and_key = s2n_cert_chain_and_key_new();
+    s2n_cert_chain_and_key_load_pem(chain_and_key, client_cert, client_key);
+    s2n_config_add_cert_chain_and_key_to_store(config, chain_and_key);
+
+    #else
+    s2n_config_set_client_auth_type(config, S2N_CERT_AUTH_NONE);
+    #endif
+
+    #ifdef SERV_VERIF_DISABLE
+    if (s2n_config_disable_x509_verification(config) != S2N_SUCCESS) {
+        fprintf(stderr, "Error: s2n_config_disable_x509_verification %s\n", strerror(errno));
+        exit(1);
     }
+    #endif
+    s2n_config_set_verify_host_callback(config, verify_host, NULL);
+
+    
 
     if (s2n_connection_set_config(conn, config)) {
         fprintf(stderr, "Error: failed to set config on connection\n");
@@ -225,6 +300,12 @@ int main(int argc, char* argv[])
              * for our purposes */
             continue;
         }
+        size_t recv_buf_size = 1024 * 100;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &recv_buf_size, sizeof(recv_buf_size)) < 0) {
+        perror("Failed to set receive buffer size");
+        close(sockfd);
+        exit(1);
+        }
 
         if (n_bytes > 0) {
             if (request_body(conn, n_bytes) != S2N_SUCCESS) {
@@ -237,7 +318,7 @@ int main(int argc, char* argv[])
             }
         }
 
-        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
+        
 
         struct tcp_info info;
         size_t info_len;
@@ -250,11 +331,13 @@ int main(int argc, char* argv[])
             close(sockfd);
             goto s2n_err;
         }
-
+        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
         if (close(sockfd)) {
             fprintf(stderr, "Error: socket shutdown failed with error %s\n", strerror(errno));
             goto err;
         }
+        
+
 
         // no output on warmup run
         if (i < 0) {

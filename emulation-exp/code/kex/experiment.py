@@ -7,7 +7,7 @@ import subprocess
 # only measure on single parallel client until we figure out why s2nd hangs
 # after a while on >1 parallel connections
 TIMERS = 1
-MEASUREMENTS_PER_TIMER = 1000
+MEASUREMENTS_PER_TIMER = 10
 
 def run_subprocess(command, working_dir='.', expected_returncode=0):
     result = subprocess.run(
@@ -28,12 +28,17 @@ def change_qdisc(ns, dev, pkt_loss, rtt_millis):
         'dev', dev, 'root', 'netem',
         'limit', '1000',
         'delay', f"{rtt_millis/2.0}ms",
-        'rate', '1000mbit'
+        'rate', '1000mbit' 
     ]
     if pkt_loss > 0:
         command.extend(["loss", f"{pkt_loss}%"])
     print(str(datetime.datetime.now()) + " > " + " ".join(command))
     run_subprocess(command)
+
+rtt_latencies = [
+    #50,   # for 1mbps speed (fast connections)
+    150,    # for 100mbps speed (slow connections)
+]
 
 def time_handshake(security_policy, measurements, xfer_size):
     assert xfer_size >= 0
@@ -65,30 +70,23 @@ if not os.path.exists('data'):
     os.makedirs('data')
 
 security_policies = [
-    'PQ-TLS-1-3-P256',
-    'PQ-TLS-1-3-P384',
-    'PQ-TLS-1-3-P521',
-    'PQ-TLS-1-3-KYBER512',
+    #'PQ-TLS-1-3-P256',
+    # 'PQ-TLS-1-3-P384',
+    # 'PQ-TLS-1-3-P521',
+    # 'PQ-TLS-1-3-KYBER512',
     'PQ-TLS-1-3-KYBER768',
-    'PQ-TLS-1-3-KYBER1024',
+    # 'PQ-TLS-1-3-KYBER1024',
 ]
 
-rtt_latencies = [
-    0.08,   # localhost
-    0.69,   # PDX => PDX
-    21.0,   # PDX => SFO
-    133.0,  # PDX => LHR
-    230.0,  # PDX => BOM
-]
-
-loss_rates = [0, 0.1, 0.5, 1, 1.5, 2, 2.5, 3, 10]
+loss_rates = [0]
 
 xfer_sizes = [
-    0,              # handshake-only, close immediately
-    2**10*10e0,     # 1     KiB
+    0,             # handshake-only, close immediately
+    #2**10*50,      # 50     KiB
+    #2**10*150,     # 150     KiB
 ]
 
-with open("data/data.csv", 'w') as out:
+with open("data/mTLS_cert22KB_initcwnd24_superFast_1000mbps_150RTT.csv", 'w') as out:
     csv_out=csv.writer(out)
     csv_out.writerow(
         ["policy", "rtt", "pkt_loss", "xfer_bytes", "latency", "tcpi_retransmits", "tcpi_retrans", "tcpi_total_retrans"]
