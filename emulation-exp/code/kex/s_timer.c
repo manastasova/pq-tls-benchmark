@@ -63,7 +63,7 @@ int do_tls_handshake(struct s2n_connection *conn)
         return SOCKERR;
     }
 
-    int state = 1;
+     int state = 1;
     if (setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &state, sizeof(state)) < 0) {
         fprintf(stderr, "Error: setting TCP_NODELAY sockopt failed with %s\n", strerror(errno));
         close(sockfd);
@@ -239,7 +239,7 @@ int main(int argc, char* argv[])
 
     const char* trust_store_dir = NULL;
     const char* trust_store_path = "../certs/CA.crt";
-    //const char* trust_store_path = "../certs/new_certs/ca_rsa4096_cert.pem";
+   //  const char* trust_store_path = "../certs/new_certs/ca_rsa4096_cert.pem";
     if (s2n_config_set_verification_ca_location(config, trust_store_dir, trust_store_path)) {
         fprintf(stderr, "Error: failed to set trust store on config\n");
         goto s2n_err;
@@ -317,27 +317,25 @@ int main(int argc, char* argv[])
                 goto err;
             }
         }
-
         
-
+        
         struct tcp_info info;
         size_t info_len;
         if (getsockopt(sockfd, SOL_TCP, TCP_INFO, &info, (socklen_t*) &info_len) < 0) {
             fprintf(stderr, "Error: cannot get TCP info with error %s\n", strerror(errno));
         }
+        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
 
         s2n_blocked_status unused;
         if(s2n_shutdown(conn, &unused) != S2N_SUCCESS || s2n_connection_wipe(conn) != S2N_SUCCESS) {
             close(sockfd);
             goto s2n_err;
         }
-        clock_gettime(CLOCK_MONOTONIC_RAW, &finish);
+        
         if (close(sockfd)) {
             fprintf(stderr, "Error: socket shutdown failed with error %s\n", strerror(errno));
             goto err;
         }
-        
-
 
         // no output on warmup run
         if (i < 0) {

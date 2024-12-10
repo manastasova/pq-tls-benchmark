@@ -55,6 +55,9 @@ trap cleanup INT KILL TERM EXIT
 # --mutualAuth \
 # --ca-file ${CERT_DIR}/new_certs/ca_rsa4096_cert.pem \
 
+# --mutualAuth \
+#     --ca-file ${CERT_DIR}/new_certs/ca_rsa4096_cert.pem\
+
 # --cert ${CERT_DIR}/server-cas.pem \
 # --key ${CERT_DIR}/server-key.pem \
 # --mutualAuth \
@@ -62,11 +65,11 @@ trap cleanup INT KILL TERM EXIT
 ##########################
 sudo ip netns exec srv_ns ${S2ND} \
     --ciphers "PQ-TLS-1-3-2023-06-01" \
-    --cert ${CERT_DIR}/new_certs/server_rsa4096_cert.pem  \
-    --key ${CERT_DIR}/new_certs/server_rsa4096_key.pem \
+    --cert ${CERT_DIR}/server-cas.pem  \
+    --key ${CERT_DIR}/server-key.pem \
     --https-bench 0 \
     --mutualAuth \
-    --ca-file ${CERT_DIR}/new_certs/ca_rsa4096_cert.pem\
+    --ca-file ${CERT_DIR}/CA.crt \
     --no-session-ticket \
     --self-service-blinding \
     --corked-io \
