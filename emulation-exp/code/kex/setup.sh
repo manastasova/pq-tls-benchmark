@@ -42,30 +42,21 @@ trap cleanup INT KILL TERM EXIT
 ##########################
 # Start S2N Server
 
-# new_certs/server_rsa4096_cert.pem
-# new_certs/server_rsa4096_key.pem
-# new_certs/ca_rsa4096_cert.pem
+#Modify cert location as needed:
+# 2KB certs
+# --cert ${CERT_DIR}/server-cas_2KB.pem  \
+# --key ${CERT_DIR}/server-key_2KB.pem \
+# 18KB certs
+# --cert ${CERT_DIR}/server-cas_18KB.pem  \
+# --key ${CERT_DIR}/server-key_18KB.pem \
+# 22KB certs
+# --cert ${CERT_DIR}/server-cas_18KB.pem  \
+# --key ${CERT_DIR}/server-key_18KB.pem \
 
-# server-cas.pem
-# server-key.pem
-# CA.crt
-
-# --cert ${CERT_DIR}/new_certs/server_rsa4096_cert.pem \
-# --key ${CERT_DIR}/new_certs/server_rsa4096_key.pem \
-# --mutualAuth \
-# --ca-file ${CERT_DIR}/new_certs/ca_rsa4096_cert.pem \
-
-# --mutualAuth \
-#     --ca-file ${CERT_DIR}/new_certs/ca_rsa4096_cert.pem\
-
-# --cert ${CERT_DIR}/server-cas.pem \
-# --key ${CERT_DIR}/server-key.pem \
-# --mutualAuth \
-# --ca-file ${CERT_DIR}/CA.crt \
 ##########################
 sudo ip netns exec srv_ns ${S2ND} \
     --ciphers "PQ-TLS-1-3-2023-06-01" \
-    --cert ${CERT_DIR}/server-cas.pem  \
+    --cert ${CERT_DIR}/server-cas_3KB.pem \
     --key ${CERT_DIR}/server-key.pem \
     --https-bench 0 \
     --mutualAuth \

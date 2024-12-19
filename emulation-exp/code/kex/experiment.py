@@ -36,9 +36,10 @@ def change_qdisc(ns, dev, pkt_loss, rtt_millis, speed_mbps):
     run_subprocess(command)
 
 rtt_latencies = [
-        #, f"{rtt_millis/90.0}ms", 'distribution', 'normal', 
+    #35,    #, f"{rtt_millis/90.0}ms", 'distribution', 'normal', 
     50,     # for 1mbps speed (fast connections)
-    150,    # for 100mbps speed (slow connections)
+    #75,
+    #150,    # for 100mbps speed (slow connections)
 ]
 
 
@@ -78,7 +79,7 @@ if not os.path.exists('data'):
     os.makedirs('data')
 
 security_policies = [
-    #'PQ-TLS-1-3-P256',
+    'PQ-TLS-1-3-P256',
     #'PQ-TLS-1-3-P384',
     # 'PQ-TLS-1-3-P521',
     # 'PQ-TLS-1-3-KYBER512',
@@ -90,11 +91,11 @@ loss_rates = [0]
 
 xfer_sizes = [
     0,             # handshake-only, close immediately
-    2**10*50,      # 50     KiB
-    2**10*150,     # 150     KiB
+    #2**10*50,      # 50     KiB
+    #2**10*150,     # 150     KiB
 ]
 
-with open("data/mTLS_cert22KB_initcwnd24serv24cli.csv", 'w') as out:
+with open("data/mTLS_cert3KB_initcwnd24serv24cli.csv", 'w') as out:
     csv_out=csv.writer(out)
     csv_out.writerow(
         ["policy", "rtt", "speed", "xfer_bytes", "latency"]

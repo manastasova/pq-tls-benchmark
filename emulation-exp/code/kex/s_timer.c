@@ -239,7 +239,7 @@ int main(int argc, char* argv[])
 
     const char* trust_store_dir = NULL;
     const char* trust_store_path = "../certs/CA.crt";
-   //  const char* trust_store_path = "../certs/new_certs/ca_rsa4096_cert.pem";
+    //  const char* trust_store_path = "../certs/new_certs/ca_rsa4096_cert.pem";
     if (s2n_config_set_verification_ca_location(config, trust_store_dir, trust_store_path)) {
         fprintf(stderr, "Error: failed to set trust store on config\n");
         goto s2n_err;
@@ -253,15 +253,13 @@ int main(int argc, char* argv[])
     #ifdef CLI_AUTH_REQ
     s2n_config_set_client_auth_type(config, S2N_CERT_AUTH_REQUIRED);
 
-    // const char *client_cert_path = "../certs/new_certs/client_rsa4096_cert.pem";
-    // const char *client_key_path = "../certs/new_certs/client_rsa4096_key.pem";
-
-    const char *client_cert_path = "../certs/client-cas.pem";
+    // set client certificates as needed (X in {2, 18,22}KB)
+    const char *client_cert_path = "../certs/client-cas_3KB.pem";
     const char *client_key_path = "../certs/client-key.pem";
 
     // Load the file into a string
     char *client_cert = load_file_to_cstring(client_cert_path);
-    char *client_key = load_file_to_cstring(client_key_path);
+    char *client_key  = load_file_to_cstring(client_key_path);
 
     struct s2n_cert_chain_and_key *chain_and_key = s2n_cert_chain_and_key_new();
     s2n_cert_chain_and_key_load_pem(chain_and_key, client_cert, client_key);
