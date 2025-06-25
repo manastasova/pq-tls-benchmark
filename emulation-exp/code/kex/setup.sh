@@ -56,7 +56,7 @@ trap cleanup INT KILL TERM EXIT
 ##########################
 sudo ip netns exec srv_ns ${S2ND} \
     --ciphers "PQ-TLS-1-3-2023-06-01" \
-    --cert ${CERT_DIR}/server-cas_3KB.pem \
+    --cert ${CERT_DIR}/server-cas_22KB.pem \
     --key ${CERT_DIR}/server-key.pem \
     --https-bench 0 \
     --mutualAuth \

@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
     s2n_config_set_client_auth_type(config, S2N_CERT_AUTH_REQUIRED);
 
     // set client certificates as needed (X in {2, 18,22}KB)
-    const char *client_cert_path = "../certs/client-cas_3KB.pem";
+    const char *client_cert_path = "../certs/client-cas_22KB.pem";
     const char *client_key_path = "../certs/client-key.pem";
 
     // Load the file into a string

@@ -79,7 +79,7 @@ if not os.path.exists('data'):
     os.makedirs('data')
 
 security_policies = [
-    'PQ-TLS-1-3-P256',
+    #'PQ-TLS-1-3-P256',
     #'PQ-TLS-1-3-P384',
     # 'PQ-TLS-1-3-P521',
     # 'PQ-TLS-1-3-KYBER512',
@@ -91,25 +91,25 @@ loss_rates = [0]
 
 xfer_sizes = [
     0,             # handshake-only, close immediately
-    #2**10*50,      # 50     KiB
-    #2**10*150,     # 150     KiB
+    2**10*50,      # 50     KiB
+    2**10*150,     # 150     KiB
 ]
 
-with open("data/mTLS_cert3KB_initcwnd24serv24cli.csv", 'w') as out:
+with open("data/mTLS_cert22KB_initcwnd24serv24cli_newest.csv", 'w') as out:
     csv_out=csv.writer(out)
     csv_out.writerow(
         ["policy", "rtt", "speed", "xfer_bytes", "latency"]
         )
     for speed_mbps in speed:
         for rtt in rtt_latencies:
-            change_qdisc('cli_ns', 'cli_ve', 0, rtt, speed_mbps)
-            change_qdisc('srv_ns', 'srv_ve', 0, rtt, speed_mbps)
-            measured_rtt = get_rtt_ms()
-            change_qdisc('cli_ns', 'cli_ve', 0, measured_rtt, speed_mbps)
-            change_qdisc('srv_ns', 'srv_ve', 0, measured_rtt, speed_mbps)
             for security_policy in security_policies:
                 for xfer_size in map(int, xfer_sizes):
                     for in_row in run_timers(security_policy, timer_pool, xfer_size):
+                        change_qdisc('cli_ns', 'cli_ve', 0, rtt, speed_mbps)
+                        change_qdisc('srv_ns', 'srv_ve', 0, rtt, speed_mbps)
+                        measured_rtt = get_rtt_ms()
+                        change_qdisc('cli_ns', 'cli_ve', 0, measured_rtt, speed_mbps)
+                        change_qdisc('srv_ns', 'srv_ve', 0, measured_rtt, speed_mbps)
                         row = [
                             security_policy,
                             str(measured_rtt),
