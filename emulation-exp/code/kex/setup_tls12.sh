@@ -55,12 +55,11 @@ trap cleanup INT KILL TERM EXIT
 
 ##########################
 sudo ip netns exec srv_ns ${S2ND} \
-    --ciphers "PQ-TLS-1-3-2023-06-01" \
-    --cert ${CERT_DIR}/server-cas_22KB.pem \
-    --key ${CERT_DIR}/server-key.pem \
+    --ciphers "test_mtls_s2n_ecdhe_rsa_with_aes_256_gcm_sha384" \
+    --cert ${CERT_DIR}/ecdsa/server_rsa.crt \
+    --key ${CERT_DIR}/ecdsa/server_rsa.key \
     --mutualAuth \
     --https-bench 0 \
-    --ca-file ${CERT_DIR}/CA.crt \
     --no-session-ticket \
     --self-service-blinding \
     --corked-io \

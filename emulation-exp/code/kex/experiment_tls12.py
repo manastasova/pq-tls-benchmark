@@ -18,7 +18,8 @@ def run_subprocess(command, working_dir='.', expected_returncode=0):
     )
     if(result.stderr):
         print(result.stderr)
-    assert result.returncode == expected_returncode
+    if expected_returncode is not None:
+        assert result.returncode == expected_returncode
     return result.stdout.decode('utf-8')
 
 def change_qdisc(ns, dev, pkt_loss, rtt_millis, speed_mbps):
@@ -26,7 +27,7 @@ def change_qdisc(ns, dev, pkt_loss, rtt_millis, speed_mbps):
         'sudo', 'ip', 'netns', 'exec', ns,
         'tc', 'qdisc', 'change',
         'dev', dev, 'root', 'netem',
-        'limit', '1000',
+        'limit', '1',
         'delay', f"{rtt_millis/2.0}ms", f"{rtt_millis/90.0}ms", 'distribution', 'normal',
         'rate', f"{speed_mbps}mbit"
     ]
@@ -45,8 +46,8 @@ rtt_latencies = [
 
 speed = [
     1000,       # superFast
-    # 100,        # fast
-    # 1,          # slow
+    #100,        # fast
+    #1,          # slow
 ]
 
 def time_handshake(security_policy, measurements, xfer_size):
@@ -55,13 +56,45 @@ def time_handshake(security_policy, measurements, xfer_size):
         'sudo', 'ip', 'netns', 'exec', 'cli_ns',
         './s_timer.o', security_policy, str(measurements), str(xfer_size),
     ]
-    rows = [row.split(',') for row in run_subprocess(command).strip().split('\n')]
-    return [list(map(float, row)) for row in rows]
+
+    try:
+        output = run_subprocess(command, expected_returncode=None).strip()
+        
+        # Extract cipher suite information
+        cipher_suite = "Unknown"
+        for line in output.split('\n'):
+            if line.startswith("CIPHER:"):
+                cipher_suite = line.split("CIPHER:")[1].strip()
+                break
+        
+        # Process the measurement rows (excluding the CIPHER line)
+        rows = []
+        for line in output.split('\n'):
+            if not line.startswith("CIPHER:") and not line.startswith("DEBUG:") and not line.startswith("Error:"):
+                parts = line.split(',')
+                if len(parts) > 1:  # Make sure it's a data row
+                    try:
+                        row_data = list(map(float, parts))
+                        rows.append((cipher_suite, row_data))
+                    except ValueError:
+                        # Skip lines that can't be converted to float
+                        continue
+        
+        return rows
+    except Exception as e:
+        print(f"Error in time_handshake: {e}")
+        return []
 
 def run_timers(security_policy, timer_pool, xfer_size):
     results_nested = timer_pool.starmap(time_handshake, [(security_policy,
         MEASUREMENTS_PER_TIMER, xfer_size)] * TIMERS)
-    return [item for sublist in results_nested for item in sublist]
+    # Flatten the results while preserving the cipher suite information
+    flattened = []
+    for sublist in results_nested:
+        for cipher_suite, measurements in sublist:
+            flattened.append((cipher_suite, measurements))
+    return flattened
+
 
 def get_rtt_ms() -> float:
     command = [
@@ -83,7 +116,7 @@ security_policies = [
     #'PQ-TLS-1-3-P384',
     # 'PQ-TLS-1-3-P521',
     # 'PQ-TLS-1-3-KYBER512',
-    'PQ-TLS-1-3-KYBER768',
+    'test_mtls_s2n_ecdhe_rsa_with_aes_256_gcm_sha384',
     # 'PQ-TLS-1-3-KYBER1024',
 ]
 
@@ -91,14 +124,14 @@ loss_rates = [0]
 
 xfer_sizes = [
     0,             # handshake-only, close immediately
-    # 2**10*50,      # 50     KiB
-    # 2**10*150,     # 150     KiB
+    #2**10*50,      # 50     KiB
+    #2**10*150,     # 150     KiB
 ]
 
 with open("data/mTLS_cert22KB_initcwnd24serv24cli_newest.csv", 'w') as out:
     csv_out=csv.writer(out)
     csv_out.writerow(
-        ["policy", "rtt", "speed", "xfer_bytes", "latency"]
+        ["policy", "cipher_suite", "rtt", "speed", "xfer_bytes", "latency"]
         )
     for speed_mbps in speed:
         for rtt in rtt_latencies:
@@ -110,11 +143,13 @@ with open("data/mTLS_cert22KB_initcwnd24serv24cli_newest.csv", 'w') as out:
                         measured_rtt = get_rtt_ms()
                         change_qdisc('cli_ns', 'cli_ve', 0, measured_rtt, speed_mbps)
                         change_qdisc('srv_ns', 'srv_ve', 0, measured_rtt, speed_mbps)
+                        cipher_suite, measurements = in_row
                         row = [
                             security_policy,
+                            cipher_suite,
                             str(measured_rtt),
                             str(speed_mbps),
                             str(xfer_size),
-                            *in_row,
+                            *measurements,
                         ]
                         csv_out.writerow(row)
