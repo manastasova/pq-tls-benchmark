@@ -10,7 +10,8 @@ CERT_DIR=${ROOT}/certs
 CERT_DIR_MLDSA=/home/ubuntu/pq-tls-benchmark/emulation-exp/code/mldsa_certs
 CERT_DIR=/home/ubuntu/pq-tls-benchmark/emulation-exp/code/certs
 
-S2ND=${ROOT}/s2n-tls/bin/s2nd
+# Use local s2nd binary
+S2ND=./s2nd
 
 ##########################
 # Setup network namespaces
