@@ -147,45 +147,93 @@ int request_body(struct s2n_connection *conn, uint32_t n_bytes) {
 }
 
 int read_body(struct s2n_connection *conn, int n_bytes) {
-    int total_recieved = -1;
+    int total_recieved = 0;
     int content_length = -1;
     int recieved;
     uint8_t buffer[65536];
+    uint8_t all_data[1024 * 1024];  /* Buffer to accumulate all data */
+    int all_data_len = 0;
+    int body_start = -1;
     s2n_blocked_status unused;
+    int blocked_count = 0;
+    int max_blocked_attempts = 10000; /* Allow for network delays */
     
-    while ((recieved = s2n_recv(conn, buffer, sizeof(buffer), &unused)) > 0) {
-        if (s2n_error_get_type(s2n_errno) == S2N_ERR_T_BLOCKED) {
-            continue;
-        }
+    while (1) {
+        recieved = s2n_recv(conn, buffer, sizeof(buffer), &unused);
+        
         if (recieved < 0) {
+            if (s2n_error_get_type(s2n_errno) == S2N_ERR_T_BLOCKED) {
+                blocked_count++;
+                if (blocked_count > max_blocked_attempts) {
+                    fprintf(stderr, "Timeout: connection blocked for too long\n");
+                    return S2N_FAILURE;
+                }
+                usleep(1000); /* Sleep 1ms before retrying */
+                continue;
+            }
             fprintf(stderr, "Error reading HTTP response: %s. %s\n", 
                     s2n_strerror(s2n_errno, NULL), s2n_strerror_debug(s2n_errno, NULL));
-            return errno;
+            return S2N_FAILURE;
         }
         
-        buffer[recieved] = 0;
+        if (recieved == 0) {
+            /* Connection closed - check if we got all expected data */
+            if (body_start >= 0 && content_length >= 0 && total_recieved == content_length) {
+                /* Successfully received all data before connection closed */
+                break;
+            }
+            fprintf(stderr, "Connection closed prematurely. Received %d bytes, expected %d bytes (Content-Length: %d, body_start: %d)\n", 
+                    total_recieved, n_bytes, content_length, body_start);
+            return S2N_FAILURE;
+        }
         
-        if (total_recieved < 0) {
+        /* Reset blocked counter on successful read */
+        blocked_count = 0;
+        
+        /* Accumulate data */
+        if (all_data_len + recieved > sizeof(all_data)) {
+            fprintf(stderr, "Buffer overflow: too much data received\n");
+            return S2N_FAILURE;
+        }
+        memcpy(all_data + all_data_len, buffer, recieved);
+        all_data_len += recieved;
+        all_data[all_data_len] = 0;
+        
+        /* Parse headers if we haven't found the body yet */
+        if (body_start < 0) {
+            /* Look for Content-Length header */
             if (content_length < 0) {
                 const char *content_len_header = "Content-Length: ";
-                char *substr = strstr((char*) buffer, content_len_header);
-                if (!substr) {
-                    continue;
+                char *substr = strstr((char*) all_data, content_len_header);
+                if (substr) {
+                    content_length = strtol(substr + strlen(content_len_header), NULL, 10);
                 }
-                content_length = strtol(substr + strlen(content_len_header), NULL, 10);
-            } else if (strstr((char*) buffer, "\r\n") == (char*) buffer) {
-                total_recieved = 0;
+            }
+            
+            /* Look for end of headers (\r\n\r\n) */
+            char *body_ptr = strstr((char*) all_data, "\r\n\r\n");
+            if (body_ptr) {
+                body_start = (body_ptr - (char*) all_data) + 4;  /* Skip past \r\n\r\n */
+                total_recieved = all_data_len - body_start;
             }
         } else {
-            total_recieved += recieved;
+            /* We're reading body data */
+            total_recieved = all_data_len - body_start;
         }
         
-        if (total_recieved == content_length) {
+        /* Check if we've received all the body data */
+        if (content_length >= 0 && total_recieved >= content_length) {
             break;
         }
     }
 
-    return n_bytes == total_recieved ? S2N_SUCCESS : S2N_FAILURE;
+    if (total_recieved != n_bytes) {
+        fprintf(stderr, "Body size mismatch: received %d bytes, expected %d bytes (Content-Length: %d)\n",
+                total_recieved, n_bytes, content_length);
+        return S2N_FAILURE;
+    }
+
+    return S2N_SUCCESS;
 }
 
 char *load_file_to_cstring(const char *path)
@@ -315,7 +363,7 @@ int main(int argc, char* argv[])
         goto error;
     }
 
-    const int warmup_conns = 3;
+    const int warmup_conns = 0;
     struct timespec start, finish;
     
     for (int i = -warmup_conns; i < (int) measurements; i++) {
@@ -339,12 +387,12 @@ int main(int argc, char* argv[])
 
         if (n_bytes > 0) {
             if (request_body(conn, n_bytes) != S2N_SUCCESS) {
-                fprintf(stderr, "Error: error requesting %u bytes: %s\n", n_bytes, strerror(errno));
+                fprintf(stderr, "Error: failed to request %u bytes\n", n_bytes);
                 close(sockfd);
                 goto error;
             }
             if (read_body(conn, n_bytes) != S2N_SUCCESS) {
-                fprintf(stderr, "Error: error reading body: %s\n", strerror(errno));
+                fprintf(stderr, "Error: failed to read body (%u bytes requested)\n", n_bytes);
                 close(sockfd);
                 goto error;
             }
