@@ -1,45 +1,39 @@
 #!/bin/bash
 set -ex
-set -o pipefail
 
 # AWS-LC requires golang modules, module proxy is blocked on some networks
 export GOPROXY=direct
 
 ROOT=$(pwd)
-INSATLL_DIR=${ROOT}/install
+INSTALL_DIR=${ROOT}/install
 rm -rf ${INSTALL_DIR}
-mkdir -p ${INSATLL_DIR}
+mkdir -p ${INSTALL_DIR}
 
 # build AWS-LC
-[[ -d aws-lc ]] || git clone --single-branch --branch pq-bench https://github.com/WillChilds-Klein/aws-lc
-pushd aws-lc
+[[ -d aws-lc ]] || git clone https://github.com/aws/aws-lc
 rm -rf build
 mkdir -p build
-pushd build
-cmake \
-    -DBUILD_TESTING=OFF \
-    -DCMAKE_PREFIX_PATH=${INSATLL_DIR} \
-    -DCMAKE_INSTALL_PREFIX=${INSATLL_DIR} \
-    -DCMAKE_VERBOSE_MAKEFILE=1 \
-    -DENABLE_DILITHIUM=ON \
-    ..
-make -j $(nproc) 2>&1
-make install -j $(nproc)
-popd    # build
-popd    # aws-lc
+cd build
+cmake -GNinja \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
+    ../aws-lc
+ninja
+ninja install
+cd ${ROOT}
 
 # build s2n
-[[ -d s2n-tls ]] || git clone --single-branch --branch pq-bench https://github.com/WillChilds-Klein/s2n-tls
-pushd s2n-tls
-rm -rf build
+[[ -d s2n-tls ]] || git clone https://github.com/aws/s2n-tls
+cd s2n-tls
+sudo rm -rf build
 mkdir -p build
-pushd build
-cmake \
-    -DCMAKE_PREFIX_PATH=${INSATLL_DIR} \
-    -DCMAKE_INSTALL_PREFIX=${INSATLL_DIR} \
-    -DCMAKE_VERBOSE_MAKEFILE=1 \
-    ..
-make -j $(nproc) 2>&1
-make install -j $(nproc)
-popd    # build
-popd    # s2n-tls
+cd build
+cmake . -Bbuild \
+    -DCMAKE_PREFIX_PATH=${INSTALL_DIR} \
+    -DCMAKE_BUILD_TYPE=Debug \
+    -DCMAKE_C_FLAGS="-DS2N_LIBCRYPTO_SUPPORTS_MLDSA=1" \
+    -DS2N_LIBCRYPTO_SUPPORTS_MLDSA=1 \
+    -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} ../
+cmake --build build -j $(nproc)
+cmake --install build
+cd ${ROOT}

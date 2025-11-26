@@ -7,36 +7,21 @@ INSTALL_DIR=${ROOT}/install
 OPENSSL=$(which openssl)
 
 CERT_DIR=${ROOT}/certs
-rm -rf ${CERT_DIR}
-mkdir -p ${CERT_DIR}
-S2ND=${ROOT}/s2n-tls/build/bin/s2nd
+CERT_DIR_MLDSA=/home/ubuntu/pq-tls-benchmark/emulation-exp/code/mldsa_certs
+CERT_DIR=/home/ubuntu/pq-tls-benchmark/emulation-exp/code/certs
+
+S2ND=${ROOT}/s2n-tls/bin/s2nd
 
 ##########################
 # Setup network namespaces
 ##########################
 ${ROOT}/setup_ns.sh
 
-##########################
-# Generate ECDSA P-256 cert
-##########################
-# generate curve parameters
-${OPENSSL} ecparam -out prime256v1.crt -name prime256v1
-
-# generate CA key and cert
-${OPENSSL} req -x509 -new -newkey ec:prime256v1.crt -keyout ${CERT_DIR}/CA.key -out ${CERT_DIR}/CA.crt -nodes -subj "/CN=OQS test ecdsap256 CA" -days 365
-
-# generate server CSR
-${OPENSSL} req -new -newkey ec:prime256v1.crt -keyout ${CERT_DIR}/server.key -out ${CERT_DIR}/server.csr -nodes -subj "/CN=oqstest CA ecdsap256"
-
-# generate server cert
-${OPENSSL} x509 -req -in ${CERT_DIR}/server.csr -out ${CERT_DIR}/server.crt -CA ${CERT_DIR}/CA.crt -CAkey ${CERT_DIR}/CA.key -CAcreateserial -days 365
-
 function cleanup() {
     ##########################
     # Remove files
     ##########################
-    rm -f prime256v1.crt \
-          s_timer.o
+    rm -f s_timer.o
 
     ##########################
     # Remove network namespaces
@@ -45,7 +30,6 @@ function cleanup() {
     sudo ip netns del srv_ns
 }
 trap cleanup INT KILL TERM EXIT
-
 
 # TODO [childw]: dimensions over these options
 #
@@ -61,16 +45,15 @@ trap cleanup INT KILL TERM EXIT
 # Start S2N Server
 ##########################
 sudo ip netns exec srv_ns ${S2ND} \
-    --ciphers "PQ-TLS-1-3-2023-06-01" \
-    --parallelize \
-    --cert ${CERT_DIR}/server.crt \
-    --key ${CERT_DIR}/server.key \
-    --key-log s2n.keys \
-    `# NOTE: 0 denotes "let client choose size by senging GET w/ qeury param giving # bytes` \
+    --ciphers "20250512" \
+    --cert ${CERT_DIR_MLDSA}/certificate_chain.pem \
+    --key ${CERT_DIR_MLDSA}/leaf_key.pem \
     --https-bench 0 \
+    --ca-file ${CERT_DIR_MLDSA}/root_ca_cert.pem \
+    --prefer-throughput \
+    --mutualAuth \
     --corked-io \
     --no-session-ticket \
     --self-service-blinding \
     10.0.0.1 \
-    4433 \
-    1>/dev/null
+    4433

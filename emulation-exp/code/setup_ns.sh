@@ -13,6 +13,12 @@ CLIENT_NS=cli_ns
 CLIENT_VETH_LL_ADDR=00:00:00:00:00:01
 CLIENT_VETH=cli_ve
 
+# Cleanup existing namespaces if they exist
+echo "Cleaning up existing network namespaces..."
+sudo ip netns del ${SERVER_NS} 2>/dev/null || true
+sudo ip netns del ${CLIENT_NS} 2>/dev/null || true
+
+# Create new namespaces
 sudo ip netns add ${SERVER_NS}
 sudo ip netns add ${CLIENT_NS}
 sudo ip link add \
@@ -59,8 +65,8 @@ sudo ip netns exec ${SERVER_NS} \
 sudo ip netns exec ${CLIENT_NS} \
    tc qdisc add \
       dev ${CLIENT_VETH} \
-      root netem
+      root netem limit 10000
 sudo ip netns exec ${SERVER_NS} \
    tc qdisc add \
       dev ${SERVER_VETH} \
-      root netem
+      root netem limit 10000
