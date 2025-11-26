@@ -6,6 +6,7 @@
  * in the file LICENSE in the source distribution or at
  * https://www.openssl.org/source/license.html
  */
+#define _GNU_SOURCE
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
@@ -23,6 +24,8 @@
 #define NS_IN_MS 1000000.0
 #define MS_IN_S 1000
 #define SOCKERR -1
+#define TCP_ACK_TIMEOUT_MS 5000
+#define TCP_ACK_POLL_INTERVAL_US 100
 
 const char* host = "10.0.0.1";
 const int port = 4433;
@@ -87,6 +90,40 @@ int do_tls_handshake(struct s2n_connection *conn)
             close(sockfd);
             return SOCKERR;
         }
+    }
+
+    /* Wait for all sent data (including client cert) to be acknowledged by peer */
+    struct timespec poll_start, poll_current;
+    clock_gettime(CLOCK_MONOTONIC_RAW, &poll_start);
+    
+    struct tcp_info tcp_info;
+    socklen_t tcp_info_len = sizeof(tcp_info);
+    int total_wait_ms = 0;
+    
+    while (1) {
+        if (getsockopt(sockfd, IPPROTO_TCP, TCP_INFO, &tcp_info, &tcp_info_len) < 0) {
+            fprintf(stderr, "Warning: cannot get TCP info during ACK polling: %s\n", strerror(errno));
+            break;
+        }
+        
+        /* Check if all data has been acknowledged */
+        if (tcp_info.tcpi_unacked == 0) {
+            break;
+        }
+        
+        /* Check for timeout */
+        clock_gettime(CLOCK_MONOTONIC_RAW, &poll_current);
+        total_wait_ms = ((poll_current.tv_sec - poll_start.tv_sec) * MS_IN_S) + 
+                        ((poll_current.tv_nsec - poll_start.tv_nsec) / NS_IN_MS);
+        
+        if (total_wait_ms > TCP_ACK_TIMEOUT_MS) {
+            fprintf(stderr, "Warning: TCP ACK timeout after %d ms (unacked=%u)\n", 
+                    total_wait_ms, tcp_info.tcpi_unacked);
+            break;
+        }
+        
+        /* Sleep briefly before polling again */
+        usleep(TCP_ACK_POLL_INTERVAL_US);
     }
 
     state = 0;
