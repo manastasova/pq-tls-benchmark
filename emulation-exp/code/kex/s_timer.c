@@ -30,7 +30,7 @@
 const char* host = "10.0.0.1";
 const int port = 4433;
 
-int do_tls_handshake(struct s2n_connection *conn)
+int do_tls_handshake(struct s2n_connection *conn, uint32_t n_bytes)
 {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
@@ -93,37 +93,40 @@ int do_tls_handshake(struct s2n_connection *conn)
     }
 
     /* Wait for all sent data (including client cert) to be acknowledged by peer */
-    struct timespec poll_start, poll_current;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &poll_start);
-    
-    struct tcp_info tcp_info;
-    socklen_t tcp_info_len = sizeof(tcp_info);
-    int total_wait_ms = 0;
-    
-    while (1) {
-        if (getsockopt(sockfd, IPPROTO_TCP, TCP_INFO, &tcp_info, &tcp_info_len) < 0) {
-            fprintf(stderr, "Warning: cannot get TCP info during ACK polling: %s\n", strerror(errno));
-            break;
+    /* Only perform TCP ACK polling when transfer size is 0KB */
+    if (n_bytes == 0) {
+        struct timespec poll_start, poll_current;
+        clock_gettime(CLOCK_MONOTONIC_RAW, &poll_start);
+        
+        struct tcp_info tcp_info;
+        socklen_t tcp_info_len = sizeof(tcp_info);
+        int total_wait_ms = 0;
+        
+        while (1) {
+            if (getsockopt(sockfd, IPPROTO_TCP, TCP_INFO, &tcp_info, &tcp_info_len) < 0) {
+                fprintf(stderr, "Warning: cannot get TCP info during ACK polling: %s\n", strerror(errno));
+                break;
+            }
+            
+            /* Check if all data has been acknowledged */
+            if (tcp_info.tcpi_unacked == 0) {
+                break;
+            }
+            
+            /* Check for timeout */
+            clock_gettime(CLOCK_MONOTONIC_RAW, &poll_current);
+            total_wait_ms = ((poll_current.tv_sec - poll_start.tv_sec) * MS_IN_S) + 
+                            ((poll_current.tv_nsec - poll_start.tv_nsec) / NS_IN_MS);
+            
+            if (total_wait_ms > TCP_ACK_TIMEOUT_MS) {
+                fprintf(stderr, "Warning: TCP ACK timeout after %d ms (unacked=%u)\n", 
+                        total_wait_ms, tcp_info.tcpi_unacked);
+                break;
+            }
+            
+            /* Sleep briefly before polling again */
+            usleep(TCP_ACK_POLL_INTERVAL_US);
         }
-        
-        /* Check if all data has been acknowledged */
-        if (tcp_info.tcpi_unacked == 0) {
-            break;
-        }
-        
-        /* Check for timeout */
-        clock_gettime(CLOCK_MONOTONIC_RAW, &poll_current);
-        total_wait_ms = ((poll_current.tv_sec - poll_start.tv_sec) * MS_IN_S) + 
-                        ((poll_current.tv_nsec - poll_start.tv_nsec) / NS_IN_MS);
-        
-        if (total_wait_ms > TCP_ACK_TIMEOUT_MS) {
-            fprintf(stderr, "Warning: TCP ACK timeout after %d ms (unacked=%u)\n", 
-                    total_wait_ms, tcp_info.tcpi_unacked);
-            break;
-        }
-        
-        /* Sleep briefly before polling again */
-        usleep(TCP_ACK_POLL_INTERVAL_US);
     }
 
     state = 0;
@@ -373,7 +376,7 @@ int main(int argc, char* argv[])
         }
 
         clock_gettime(CLOCK_MONOTONIC_RAW, &start);
-        int sockfd = do_tls_handshake(conn);
+        int sockfd = do_tls_handshake(conn, n_bytes);
         if (sockfd == SOCKERR) {
             continue;
         }

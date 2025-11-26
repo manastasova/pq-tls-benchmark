@@ -9,7 +9,7 @@ import argparse
 # only measure on single parallel client until we figure out why s2nd hangs
 # after a while on >1 parallel connections
 TIMERS = 1
-MEASUREMENTS_PER_TIMER = 1
+MEASUREMENTS_PER_TIMER = 1000
 
 def run_subprocess(command, working_dir='.', expected_returncode=0):
     result = subprocess.run(

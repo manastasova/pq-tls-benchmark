@@ -67,7 +67,7 @@ for CLIENT_ICWND in "${CLIENT_ICWND_ARRAY[@]}"; do
                 CURRENT_EXPERIMENT=$((CURRENT_EXPERIMENT + 1))
                 
                 echo ""
-            r    echo "=================================================="
+                echo "=================================================="
                 echo "Experiment ${CURRENT_EXPERIMENT}/${TOTAL_EXPERIMENTS}"
                 echo "Server ICW: ${SERVER_ICWND}, Client ICW: ${CLIENT_ICWND}"
                 echo "RTT: ${RTT}ms, Data transfer: ${BYTES}KB, Speed: ${SPEED}Mbps"
