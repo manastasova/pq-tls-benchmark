@@ -40,7 +40,7 @@ def change_qdisc(ns, dev, pkt_loss, rtt_millis, speed_mbps):
         'tc', 'qdisc', 'change',
         'dev', dev, 'root', 'netem',
         'limit', '1000',
-        'delay', f"{rtt_millis/2.0}ms", f"{rtt_millis*0.015}ms", 'distribution', 'normal',
+        'delay', f"{rtt_millis/2.0}ms", f"{rtt_millis/90.0}ms", 'distribution', 'normal',
         'rate', f"{speed_mbps}mbit"
     ]
     if pkt_loss > 0:

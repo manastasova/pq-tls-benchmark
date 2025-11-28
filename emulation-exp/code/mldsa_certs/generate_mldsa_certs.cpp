@@ -563,9 +563,9 @@ int main() {
     std::cout << "   ✓ Intermediate CA 1 key generated and saved (DER + PEM)" << std::endl;
     std::cout << std::endl;
     
-    // Generate intermediate CA 2 key (ML-DSA-44)
-    std::cout << "3. Generating Intermediate CA 2 key (ML-DSA-44)..." << std::endl;
-    EVP_PKEY_ptr int2_key(generateMLDSAKey(44));
+    // Generate intermediate CA 2 key (ML-DSA-65)
+    std::cout << "3. Generating Intermediate CA 2 key (ML-DSA-65)..." << std::endl;
+    EVP_PKEY_ptr int2_key(generateMLDSAKey(65));
     if (!int2_key) {
         return 1;
     }
@@ -715,7 +715,7 @@ int main() {
     std::cout << "Certificate hierarchy:" << std::endl;
     std::cout << "  Root CA (ML-DSA-65) [root_ca_cert.der]" << std::endl;
     std::cout << "    └── Intermediate CA 1 (ML-DSA-65) [intermediate1_ca_cert.der]" << std::endl;
-    std::cout << "          └── Intermediate CA 2 (ML-DSA-44) [intermediate2_ca_cert.der]" << std::endl;
+    std::cout << "          └── Intermediate CA 2 (ML-DSA-65) [intermediate2_ca_cert.der]" << std::endl;
     std::cout << "                ├── Server Leaf Certificate (ML-DSA-44) [leaf_cert.der]" << std::endl;
     std::cout << "                └── Client Certificate (ML-DSA-44) [client_cert.der]" << std::endl;
     std::cout << std::endl;

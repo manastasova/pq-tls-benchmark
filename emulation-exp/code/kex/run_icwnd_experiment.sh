@@ -21,7 +21,7 @@ SERVER_ICWND=24
 CLIENT_ICWND_ARRAY=(10 24)
 
 # RTT values to test (in ms)
-RTT_ARRAY=(35 50 75 150)
+RTT_ARRAY=(35 50 150)
 
 # Data transfer sizes to test (in KB)
 BYTES_ARRAY=(0 50 150 400)
@@ -30,8 +30,8 @@ BYTES_ARRAY=(0 50 150 400)
 SPEED_ARRAY=(1 100 1000)
 
 # Calculate actual number of experiments
-# 2 client ICW values × 5 RTT values × 3 transfer sizes × 3 speeds = 90 experiments
-TOTAL_EXPERIMENTS=90
+# 2 client ICW values × 3 RTT values × 4 transfer sizes × 3 speeds = 72 experiments
+TOTAL_EXPERIMENTS=72
 
 echo "=================================================="
 echo "Running TLS Benchmark with ICW Configuration"
@@ -74,7 +74,7 @@ for CLIENT_ICWND in "${CLIENT_ICWND_ARRAY[@]}"; do
                 echo "=================================================="
                 
                 # Construct output filename with desired format
-                OUTPUT_FILE="data/icwnd_server${SERVER_ICWND}_client${CLIENT_ICWND}_RTT${RTT}_bytes${BYTES}_speed${SPEED}.csv"
+                OUTPUT_FILE="data/test_pq_icwnd_server${SERVER_ICWND}_client${CLIENT_ICWND}_RTT${RTT}_bytes${BYTES}_speed${SPEED}.csv"
                 
                 # Run the experiment with the specified parameters
                 if python3 experiment.py \
