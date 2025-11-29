@@ -74,7 +74,7 @@ for CLIENT_ICWND in "${CLIENT_ICWND_ARRAY[@]}"; do
                 echo "=================================================="
                 
                 # Construct output filename with desired format
-                OUTPUT_FILE="data/test_pq_icwnd_server${SERVER_ICWND}_client${CLIENT_ICWND}_RTT${RTT}_bytes${BYTES}_speed${SPEED}.csv"
+                OUTPUT_FILE="data/test_classic_icwnd_server${SERVER_ICWND}_client${CLIENT_ICWND}_RTT${RTT}_bytes${BYTES}_speed${SPEED}.csv"
                 
                 # Run the experiment with the specified parameters
                 if python3 experiment.py \

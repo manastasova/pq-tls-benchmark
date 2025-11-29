@@ -47,10 +47,10 @@ trap cleanup INT KILL TERM EXIT
 ##########################
 sudo ip netns exec srv_ns ${S2ND} \
     --ciphers "20250512" \
-    --cert ${CERT_DIR_MLDSA}/certificate_chain.pem \
-    --key ${CERT_DIR_MLDSA}/leaf_key.pem \
+    --cert ${CERT_DIR}/certificate_chain.pem \
+    --key ${CERT_DIR}/leaf_key.pem \
     --https-bench 0 \
-    --ca-file ${CERT_DIR_MLDSA}/root_ca_cert.pem \
+    --ca-file ${CERT_DIR}/root_ca_cert.pem \
     --prefer-throughput \
     --mutualAuth \
     --corked-io \

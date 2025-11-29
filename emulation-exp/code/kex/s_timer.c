@@ -307,7 +307,7 @@ int main(int argc, char* argv[])
         goto error;
     }
 
-    const char* trust_store_path = "/home/ubuntu/pq-tls-benchmark/emulation-exp/code/mldsa_certs/root_ca_cert.pem";
+    const char* trust_store_path = "/home/ubuntu/pq-tls-benchmark/emulation-exp/code/certs/root_ca_cert.pem";
     if (s2n_config_set_verification_ca_location(config, trust_store_path, NULL) != S2N_SUCCESS) {
         fprintf(stderr, "Error: failed to set trust store on config\n");
         goto error;
@@ -318,8 +318,8 @@ int main(int argc, char* argv[])
         goto error;
     }
 
-    const char *client_cert_path = "/home/ubuntu/pq-tls-benchmark/emulation-exp/code/mldsa_certs/client_certificate_chain.pem";
-    const char *client_key_path = "/home/ubuntu/pq-tls-benchmark/emulation-exp/code/mldsa_certs/client_key.pem";
+    const char *client_cert_path = "/home/ubuntu/pq-tls-benchmark/emulation-exp/code/certs/client_certificate_chain.pem";
+    const char *client_key_path = "/home/ubuntu/pq-tls-benchmark/emulation-exp/code/certs/client_key.pem";
 
     char *client_cert = load_file_to_cstring(client_cert_path);
     char *client_key = load_file_to_cstring(client_key_path);
